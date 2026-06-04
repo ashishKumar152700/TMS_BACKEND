@@ -1,0 +1,97 @@
+package com.tms.transportationManagementSystem.integration.jde.serviceImpl;
+
+import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderLineDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderResponseDTO;
+import com.tms.transportationManagementSystem.entity.JdeSalesOrder;
+import com.tms.transportationManagementSystem.entity.JdeSalesOrderLine;
+import com.tms.transportationManagementSystem.integration.jde.client.JdeSalesOrderClient;
+import com.tms.transportationManagementSystem.integration.jde.dto.response.JdeSalesOrderApiResponse;
+import com.tms.transportationManagementSystem.integration.jde.service.JdeSalesOrderSyncService;
+import com.tms.transportationManagementSystem.repository.JdeSalesOrderLineRepository;
+import com.tms.transportationManagementSystem.repository.JdeSalesOrderRepository;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class JdeSalesOrderSyncServiceImpl
+        implements JdeSalesOrderSyncService {
+
+    private final JdeSalesOrderClient jdeSalesOrderClient;
+    private final JdeSalesOrderRepository orderRepository;
+    private final JdeSalesOrderLineRepository lineRepository;
+
+    @Override
+    @Transactional
+    public void syncSalesOrders() {
+
+        JdeSalesOrderApiResponse response =
+                jdeSalesOrderClient.getSalesOrders();
+
+        if(response == null || response.getOrders() == null){
+            return;
+        }
+
+        for (JdeSalesOrderResponseDTO dto : response.getOrders()) {
+
+            if(orderRepository.findByOrderNumber(dto.getOrderNumber()).isPresent()){
+                continue;
+            }
+
+            JdeSalesOrder order = new JdeSalesOrder();
+
+            order.setOrderNumber(dto.getOrderNumber());
+            order.setOrderType(dto.getOrderType());
+            order.setCompany(dto.getCompany());
+            order.setCustomerNumber(dto.getCustomerNumber());
+            order.setBranchPlant(dto.getBranchPlant());
+            order.setStatus(dto.getStatus());
+            order.setCurrencyCode(dto.getCurrencyCode());
+
+            if(dto.getOrderDate() != null &&
+                    !dto.getOrderDate().isBlank()) {
+
+                order.setOrderDate(
+                        LocalDate.parse(dto.getOrderDate())
+                );
+            }
+
+            if(dto.getRequestedDate() != null &&
+                    !dto.getRequestedDate().isBlank()) {
+
+                order.setRequestedDate(
+                        LocalDate.parse(dto.getRequestedDate())
+                );
+            }
+
+            order = orderRepository.save(order);
+
+            if(dto.getLines() != null){
+
+                for(JdeSalesOrderLineDTO lineDto : dto.getLines()){
+
+                    JdeSalesOrderLine line =
+                            new JdeSalesOrderLine();
+
+                    line.setSalesOrder(order);
+                    line.setLineNumber(lineDto.getLineNumber());
+                    line.setItemNumber(lineDto.getItemNumber());
+                    line.setDescription(lineDto.getDescription());
+                    line.setQuantity(lineDto.getQuantity());
+                    line.setUom(lineDto.getUom());
+                    line.setUnitPrice(lineDto.getUnitPrice());
+                    line.setLineAmount(lineDto.getLineAmount());
+
+                    lineRepository.save(line);
+                }
+            }
+        }
+
+        log.info("Sales Orders Sync Completed");
+    }
+}
