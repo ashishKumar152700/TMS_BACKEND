@@ -13,8 +13,9 @@ public class JdeItemScheduler {
 
     private final JdeItemSyncService jdeItemSyncService;
 
-    @Scheduled(cron = "*/10 * * * * *")
+//    @Scheduled(cron = "*/10 * * * * *")
 //@Scheduled(cron = "0 */30 * * * *")
+    @Scheduled(fixedDelay = 10000)
 
 public void syncItemMaster() {
 

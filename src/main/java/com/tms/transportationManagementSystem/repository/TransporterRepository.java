@@ -17,4 +17,5 @@ public interface TransporterRepository extends JpaRepository<Transporter, Long> 
     boolean existsByGstNumber(String gstNumber);
 
     boolean existsByPanNumber(String panNumber);
+
 }

@@ -5,7 +5,7 @@ import lombok.*;
 
 import java.util.List;
 @Entity
-@Table(name = "transporters")
+@Table(name = "jde_transporters")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,7 +30,7 @@ public class Transporter {
 
     private String status;
 
-    @Column(unique = true)
+    @Column(name = "address_number", unique = true, nullable = false)
     private Long addressNumber;
 
     private Boolean active;

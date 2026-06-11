@@ -1,6 +1,6 @@
 package com.tms.transportationManagementSystem.controller;
 
-import com.tms.transportationManagementSystem.dto.RequestDTO.AddVehicleRequestDTO;
+import com.tms.transportationManagementSystem.dto.RequestDTO.VehicleRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.VehicleResponseDTO;
 import com.tms.transportationManagementSystem.service.VehicleService;
 import lombok.RequiredArgsConstructor;
@@ -16,21 +16,17 @@ public class VehicleController {
     private final VehicleService vehicleService;
 
     @PostMapping
-    public VehicleResponseDTO addVehicle(
-            @RequestBody AddVehicleRequestDTO requestDTO
-    ) {
+    public VehicleResponseDTO createVehicle(
+            @RequestBody VehicleRequestDTO requestDTO) {
 
-        return vehicleService.addVehicle(requestDTO);
+        return vehicleService.createVehicle(requestDTO);
     }
 
-    @GetMapping("/transporter/{transporterId}")
-    public List<VehicleResponseDTO> getVehiclesByTransporterId(
-            @PathVariable Long transporterId
-    ) {
+    @GetMapping("/{id}")
+    public VehicleResponseDTO getVehicleById(
+            @PathVariable Long id) {
 
-        return vehicleService.getVehiclesByTransporterId(
-                transporterId
-        );
+        return vehicleService.getVehicleById(id);
     }
 
     @GetMapping
@@ -39,25 +35,17 @@ public class VehicleController {
         return vehicleService.getAllVehicles();
     }
 
-    @GetMapping("/{id}")
-    public VehicleResponseDTO getVehicleById(
-            @PathVariable Long id
-    ) {
-
-        return vehicleService.getVehicleById(id);
-    }
-
     @PutMapping("/{id}")
     public VehicleResponseDTO updateVehicle(
             @PathVariable Long id,
-            @RequestBody AddVehicleRequestDTO requestDTO
-    ) {
+            @RequestBody VehicleRequestDTO requestDTO) {
 
         return vehicleService.updateVehicle(id, requestDTO);
     }
 
     @DeleteMapping("/{id}")
-    public String deleteVehicle(@PathVariable Long id) {
+    public String deleteVehicle(
+            @PathVariable Long id) {
 
         vehicleService.deleteVehicle(id);
 

@@ -1,9 +1,11 @@
-package enums;
+package com.tms.transportationManagementSystem.enums;
 
 public enum VehicleType {
 
-    BIKE,
-    MINI_TRUCK,
     TRUCK,
-    CONTAINER
+    CONTAINER,
+    TRAILER,
+    TANKER,
+    LCV,
+    MINI_TRUCK
 }

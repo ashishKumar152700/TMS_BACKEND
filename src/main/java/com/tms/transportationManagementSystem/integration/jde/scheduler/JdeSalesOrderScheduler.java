@@ -13,7 +13,8 @@ public class JdeSalesOrderScheduler {
 
     private final JdeSalesOrderSyncService syncService;
 
-    @Scheduled(cron = "0 */15 * * * *")
+//    @Scheduled(cron = "0 */15 * * * *")
+    @Scheduled(fixedDelay = 10000)
     public void syncSalesOrders() {
 
         log.info("Starting Sales Order Sync");

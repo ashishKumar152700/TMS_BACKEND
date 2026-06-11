@@ -1,6 +1,6 @@
-package com.tms.transportationManagementSystem.service.impl;
+package com.tms.transportationManagementSystem.serviceImpl;
 
-import com.tms.transportationManagementSystem.dto.RequestDTO.AddVehicleRequestDTO;
+import com.tms.transportationManagementSystem.dto.RequestDTO.VehicleRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.VehicleResponseDTO;
 import com.tms.transportationManagementSystem.entity.Transporter;
 import com.tms.transportationManagementSystem.entity.Vehicle;
@@ -17,76 +17,35 @@ import java.util.List;
 public class VehicleServiceImpl implements VehicleService {
 
     private final VehicleRepository vehicleRepository;
-
     private final TransporterRepository transporterRepository;
 
     @Override
-    public List<VehicleResponseDTO> getVehiclesByTransporterId(
-            Long transporterId
-    ) {
+    public VehicleResponseDTO createVehicle(VehicleRequestDTO dto) {
 
-        List<Vehicle> vehicles =
-                vehicleRepository.findByTransporterId(
-                        transporterId
-                );
-
-        return vehicles.stream()
-                .map(this::mapToDTO)
-                .toList();
-    }
-
-    @Override
-    public VehicleResponseDTO addVehicle(
-            AddVehicleRequestDTO requestDTO
-    ) {
-
-        if (vehicleRepository.existsByVehicleNumber(
-                requestDTO.getVehicleNumber()
-        )) {
-
-            throw new RuntimeException(
-                    "Vehicle number already exists"
-            );
-        }
+//        if (vehicleRepository.existsByVehicleNumber(dto.getVehicleNumber())) {
+//            throw new RuntimeException("Vehicle already exists");
+//        }
 
         Transporter transporter =
-                transporterRepository.findById(
-                                requestDTO.getTransporterId()
-                        )
+                transporterRepository.findById(dto.getTransporterId())
                         .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Transporter not found"
-                                )
-                        );
+                                new RuntimeException("Transporter not found"));
 
         Vehicle vehicle = Vehicle.builder()
-                .vehicleNumber(requestDTO.getVehicleNumber())
-                .vehicleType(requestDTO.getVehicleType())
-                .maxWeightCapacity(
-                        requestDTO.getMaxWeightCapacity()
-                )
-                .maxVolumeCapacity(
-                        requestDTO.getMaxVolumeCapacity()
-                )
-                .driverName(requestDTO.getDriverName())
-                .driverPhone(requestDTO.getDriverPhone())
-                .status("ACTIVE")
+                .vehicleNumber(dto.getVehicleNumber())
+                .vehicleType(dto.getVehicleType())
+                .vehicleCategory(dto.getVehicleCategory())
+
+                .maxWeightCapacity(dto.getMaxWeightCapacity())
+                .maxVolumeCapacity(dto.getMaxVolumeCapacity())
+
+                .gpsDeviceId(dto.getGpsDeviceId())
+                .status(dto.getStatus())
+
                 .transporter(transporter)
                 .build();
 
-        Vehicle savedVehicle =
-                vehicleRepository.save(vehicle);
-
-        return mapToDTO(savedVehicle);
-    }
-
-    @Override
-    public List<VehicleResponseDTO> getAllVehicles() {
-
-        return vehicleRepository.findAll()
-                .stream()
-                .map(this::mapToDTO)
-                .toList();
+        return mapToResponse(vehicleRepository.save(vehicle));
     }
 
     @Override
@@ -94,67 +53,48 @@ public class VehicleServiceImpl implements VehicleService {
 
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "Vehicle not found"
-                        )
-                );
+                        new RuntimeException("Vehicle not found"));
 
-        return mapToDTO(vehicle);
+        return mapToResponse(vehicle);
     }
 
     @Override
-    public VehicleResponseDTO updateVehicle(
-            Long id,
-            AddVehicleRequestDTO requestDTO
-    ) {
+    public List<VehicleResponseDTO> getAllVehicles() {
+
+        return vehicleRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public VehicleResponseDTO updateVehicle(Long id,
+                                            VehicleRequestDTO dto) {
 
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "Vehicle not found"
-                        )
-                );
+                        new RuntimeException("Vehicle not found"));
 
         Transporter transporter =
-                transporterRepository.findById(
-                                requestDTO.getTransporterId()
-                        )
+                transporterRepository.findById(dto.getTransporterId())
                         .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Transporter not found"
-                                )
-                        );
+                                new RuntimeException("Transporter not found"));
 
-        vehicle.setVehicleNumber(
-                requestDTO.getVehicleNumber()
-        );
+        vehicle.setVehicleNumber(dto.getVehicleNumber());
+        vehicle.setVehicleType(dto.getVehicleType());
+        vehicle.setVehicleCategory(dto.getVehicleCategory());
 
-        vehicle.setVehicleType(
-                requestDTO.getVehicleType()
-        );
+        vehicle.setMaxWeightCapacity(dto.getMaxWeightCapacity());
+        vehicle.setMaxVolumeCapacity(dto.getMaxVolumeCapacity());
 
-        vehicle.setMaxWeightCapacity(
-                requestDTO.getMaxWeightCapacity()
-        );
+        vehicle.setGpsDeviceId(dto.getGpsDeviceId());
+        vehicle.setStatus(dto.getStatus());
 
-        vehicle.setMaxVolumeCapacity(
-                requestDTO.getMaxVolumeCapacity()
-        );
 
-        vehicle.setDriverName(
-                requestDTO.getDriverName()
-        );
-
-        vehicle.setDriverPhone(
-                requestDTO.getDriverPhone()
-        );
 
         vehicle.setTransporter(transporter);
 
-        Vehicle updatedVehicle =
-                vehicleRepository.save(vehicle);
-
-        return mapToDTO(updatedVehicle);
+        return mapToResponse(vehicleRepository.save(vehicle));
     }
 
     @Override
@@ -162,37 +102,25 @@ public class VehicleServiceImpl implements VehicleService {
 
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "Vehicle not found"
-                        )
-                );
+                        new RuntimeException("Vehicle not found"));
 
         vehicleRepository.delete(vehicle);
     }
 
-    private VehicleResponseDTO mapToDTO(
-            Vehicle vehicle
-    ) {
+    private VehicleResponseDTO mapToResponse(Vehicle vehicle) {
 
         return VehicleResponseDTO.builder()
                 .id(vehicle.getId())
                 .vehicleNumber(vehicle.getVehicleNumber())
                 .vehicleType(vehicle.getVehicleType())
-                .maxWeightCapacity(
-                        vehicle.getMaxWeightCapacity()
-                )
-                .maxVolumeCapacity(
-                        vehicle.getMaxVolumeCapacity()
-                )
-                .driverName(vehicle.getDriverName())
-                .driverPhone(vehicle.getDriverPhone())
+                .vehicleCategory(vehicle.getVehicleCategory())
+                .maxWeightCapacity(vehicle.getMaxWeightCapacity())
+                .maxVolumeCapacity(vehicle.getMaxVolumeCapacity())
+
+                .gpsDeviceId(vehicle.getGpsDeviceId())
                 .status(vehicle.getStatus())
-                .transporterId(
-                        vehicle.getTransporter().getId()
-                )
-                .transporterName(
-                        vehicle.getTransporter().getCompanyName()
-                )
-                .build();
+
+                .transporterId(vehicle.getTransporter().getId())
+                .transporterName(vehicle.getTransporter().getCompanyName())                .build();
     }
 }

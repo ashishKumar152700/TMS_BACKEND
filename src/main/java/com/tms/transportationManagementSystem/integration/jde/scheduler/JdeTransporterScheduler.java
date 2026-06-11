@@ -14,7 +14,8 @@ public class JdeTransporterScheduler {
     private final JdeTransporterSyncService syncService;
 
 //    @Scheduled(cron = "*/10 * * * * *")
-@Scheduled(cron = "0 */30 * * * *")
+//@Scheduled(cron = "0 */30 * * * *")
+@Scheduled(fixedDelay = 10000)
 
 public void syncTransporters() {
 

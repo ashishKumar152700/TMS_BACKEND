@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "item_master")
+@Table(name = "jde_item_master")
 @Getter
 @Setter
 @NoArgsConstructor

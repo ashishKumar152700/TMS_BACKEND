@@ -1,6 +1,9 @@
 package com.tms.transportationManagementSystem.integration.jde.dto;
 
+import com.tms.transportationManagementSystem.integration.jde.dto.response.JdeVehicleResponseDTO;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class JdeTransporterResponseDTO {
@@ -18,4 +21,6 @@ public class JdeTransporterResponseDTO {
     private String active;
     private String remarks;
     private Long addressNumber;
+
+    private List<JdeVehicleResponseDTO> vehicles;
 }
