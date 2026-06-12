@@ -1,7 +1,7 @@
 package com.tms.transportationManagementSystem.controller;
 
-import com.tms.transportationManagementSystem.dto.RequestDTO.CustomerRequestDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.CustomerResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.CustomerSalesOrderResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeCustomerResponseDTO;
 import com.tms.transportationManagementSystem.service.CustomerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -9,41 +9,27 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/customers")
 @RequiredArgsConstructor
+@RequestMapping("/api/jde/customers")
 public class CustomerController {
 
     private final CustomerService customerService;
 
-    @PostMapping
-    public CustomerResponseDTO createCustomer(
-            @RequestBody CustomerRequestDTO requestDTO) {
-
-        return customerService.createCustomer(requestDTO);
-    }
-
-    @GetMapping
-    public List<CustomerResponseDTO> getAllCustomers() {
+    @GetMapping("/getAll")
+    public List<JdeCustomerResponseDTO> getAllCustomers() {
         return customerService.getAllCustomers();
     }
 
-    @GetMapping("/{id}")
-    public CustomerResponseDTO getCustomerById(
-            @PathVariable Long id) {
+    @GetMapping("/{addressNumber}/sales-orders")
+    public CustomerSalesOrderResponseDTO getCustomerSalesOrders(
+            @PathVariable Long addressNumber) {
 
-        return customerService.getCustomerById(id);
+        return customerService.getCustomerSalesOrders(addressNumber);
     }
 
-    @PutMapping("/{id}")
-    public CustomerResponseDTO updateCustomer(
-            @PathVariable Long id,
-            @RequestBody CustomerRequestDTO requestDTO) {
 
-        return customerService.updateCustomer(id, requestDTO);
-    }
-
-    @DeleteMapping("/{id}")
-    public void deleteCustomer(@PathVariable Long id) {
-        customerService.deleteCustomer(id);
+    @GetMapping("/getAllWithOrders")
+    public List<JdeCustomerResponseDTO> getAllCustomersWithOrders() {
+        return customerService.getAllCustomersWithOrders();
     }
 }

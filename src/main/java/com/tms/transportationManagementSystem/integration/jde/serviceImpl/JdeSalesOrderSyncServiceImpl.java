@@ -45,13 +45,13 @@ public class JdeSalesOrderSyncServiceImpl
 
             JdeSalesOrder order = new JdeSalesOrder();
 
-            order.setOrderNumber(dto.getOrderNumber());
-            order.setOrderType(dto.getOrderType());
-            order.setCompany(dto.getCompany());
-            order.setCustomerNumber(dto.getCustomerNumber());
-            order.setBranchPlant(dto.getBranchPlant());
-            order.setStatus(dto.getStatus());
-            order.setCurrencyCode(dto.getCurrencyCode());
+            order.setOrderNumber(dto.getOrderNumber() != null ? dto.getOrderNumber().trim() : null);
+            order.setOrderType(dto.getOrderType() != null ? dto.getOrderType().trim() : null);
+            order.setCompany(dto.getCompany() != null ? dto.getCompany().trim() : null);
+            order.setCustomerNumber(dto.getCustomerNumber() != null ? dto.getCustomerNumber().trim() : null);
+            order.setBranchPlant(dto.getBranchPlant() != null ? dto.getBranchPlant().trim() : null);
+            order.setStatus(dto.getStatus() != null ? dto.getStatus().trim() : null);
+            order.setCurrencyCode(dto.getCurrencyCode() != null ? dto.getCurrencyCode().trim() : null);
 
             if(dto.getOrderDate() != null &&
                     !dto.getOrderDate().isBlank()) {

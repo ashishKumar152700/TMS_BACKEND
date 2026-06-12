@@ -1,25 +1,24 @@
 package com.tms.transportationManagementSystem.controller;
 
-import com.tms.transportationManagementSystem.integration.jde.service.JdeSalesOrderSyncService;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderResponseDTO;
+import com.tms.transportationManagementSystem.service.JdeSalesOrderService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
-@RequestMapping("/api/jde/sales-orders")
 @RequiredArgsConstructor
+@RequestMapping("/api/jde/sales-orders")
 public class JdeSalesOrderController {
 
-    private final JdeSalesOrderSyncService syncService;
+    private final JdeSalesOrderService salesOrderService;
 
-    @PostMapping("/sync")
-    public ResponseEntity<String> syncSalesOrders() {
+    @GetMapping("/getAll")
+    public List<JdeSalesOrderResponseDTO> getAllSalesOrders() {
 
-        syncService.syncSalesOrders();
-
-        return ResponseEntity.ok(
-                "Sales Orders Synced Successfully");
+        return salesOrderService.getAllSalesOrders();
     }
 }

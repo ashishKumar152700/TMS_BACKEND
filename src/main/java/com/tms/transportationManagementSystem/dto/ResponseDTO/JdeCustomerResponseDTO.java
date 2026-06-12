@@ -2,22 +2,20 @@ package com.tms.transportationManagementSystem.dto.ResponseDTO;
 
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class JdeCustomerResponseDTO {
 
     private Long id;
-    private String addressNumber;
-    private String customerName;
-    private String searchType;
-    private String taxId;
-    private String phoneNumber;
-    private String email;
-    private String addressLine1;
-    private String city;
-    private String state;
-    private String postalCode;
-    private String country;
-    private LocalDateTime syncTime;
+    private Long addressNumber;
+    private String alphaName;
+    private Integer cm;
+    private String companyCode;
+    private String individualTaxId;
+    private String industryClass;
+    private String longAddress;
+    private String scheduleType;
+
+    private List<JdeSalesOrderResponseDTO> salesOrders;
 }
