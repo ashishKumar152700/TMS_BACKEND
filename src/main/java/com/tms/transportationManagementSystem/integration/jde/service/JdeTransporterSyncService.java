@@ -46,6 +46,16 @@ public class JdeTransporterSyncService {
             }
 
             for (JdeTransporterResponseDTO dto : transporters) {
+                log.info("Transporter: {}", dto.getCompanyName());
+
+                if (dto.getVehicles() != null) {
+                    log.info("Vehicle Count: {}", dto.getVehicles().size());
+
+                    dto.getVehicles().forEach(v ->
+                            log.info("Vehicle Number: {}", v.getVehicleNumber()));
+                } else {
+                    log.info("Vehicles list is NULL");
+                }
                 Transporter transporter = transporterRepository
                         .findByAddressNumber(dto.getAddressNumber())
                         .orElse(new Transporter());
@@ -76,6 +86,7 @@ public class JdeTransporterSyncService {
                 // Save new vehicles only if present
                 if (dto.getVehicles() != null && !dto.getVehicles().isEmpty()) {
                     for (JdeVehicleResponseDTO vehicleDto : dto.getVehicles()) {
+                        log.info("Saving Vehicle: {}", vehicleDto.getVehicleNumber());
                         Vehicle vehicle = new Vehicle();
                         vehicle.setVehicleNumber(clean(vehicleDto.getVehicleNumber()));
                         vehicle.setVehicleType(clean(vehicleDto.getVehicleType()));

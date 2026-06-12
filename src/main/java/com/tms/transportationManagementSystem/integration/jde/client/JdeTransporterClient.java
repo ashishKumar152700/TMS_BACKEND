@@ -19,7 +19,7 @@ public class JdeTransporterClient {
     private final String password = "local@4";
 
     private final String transporterUrl =
-            "http://192.168.0.36:7018/jderest/v3/orchestrator/ORCH_Transport_Data";
+            "http://192.168.0.36:7018/jderest/v3/orchestrator/ORCH_GetTransportWithVehicles";
 
     public String getTransporters() {
 

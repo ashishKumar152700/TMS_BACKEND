@@ -1,5 +1,6 @@
 package com.tms.transportationManagementSystem.integration.jde.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tms.transportationManagementSystem.integration.jde.dto.response.JdeVehicleResponseDTO;
 import lombok.Data;
 
@@ -22,5 +23,6 @@ public class JdeTransporterResponseDTO {
     private String remarks;
     private Long addressNumber;
 
+    @JsonProperty("vehicles")
     private List<JdeVehicleResponseDTO> vehicles;
 }

@@ -1,8 +1,10 @@
 package com.tms.transportationManagementSystem.integration.jde.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class JdeVehicleResponseDTO {
 
     private String vehicleNumber;
