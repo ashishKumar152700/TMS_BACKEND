@@ -1,15 +1,18 @@
 package com.tms.transportationManagementSystem.serviceImpl;
 
-import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderLineDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.*;
 import com.tms.transportationManagementSystem.entity.JdeSalesOrder;
+import com.tms.transportationManagementSystem.entity.Route;
+import com.tms.transportationManagementSystem.entity.RouteStop;
 import com.tms.transportationManagementSystem.repository.JdeSalesOrderLineRepository;
 import com.tms.transportationManagementSystem.repository.JdeSalesOrderRepository;
+import com.tms.transportationManagementSystem.repository.RouteRepository;
+import com.tms.transportationManagementSystem.repository.RouteStopRepository;
 import com.tms.transportationManagementSystem.service.JdeSalesOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,6 +21,120 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
     private final JdeSalesOrderRepository orderRepository;
     private final JdeSalesOrderLineRepository lineRepository;
+    private final RouteRepository routeRepository;
+    private final RouteStopRepository routeStopRepository;
+
+    @Override
+    public OrderRouteGroupingResponseDTO groupOrdersByRoute() {
+
+        List<JdeSalesOrder> orders = orderRepository.findAll();
+
+        Map<Long, List<OrderSummaryDTO>> routeWiseOrders = new HashMap<>();
+
+        List<UnmappedOrderDTO> unmappedOrders =
+                new ArrayList<>();
+
+        for (JdeSalesOrder order : orders) {
+
+            String city = order.getShipToCity();
+
+            if (city == null || city.trim().isEmpty()) {
+
+                unmappedOrders.add(
+                        UnmappedOrderDTO.builder()
+                                .orderId(order.getId())
+                                .orderNumber(order.getOrderNumber())
+                                .city(null)
+                                .customerNumber(order.getCustomerNumber())
+                                .reason("City is blank")
+                                .build()
+                );
+
+                continue;
+            }
+
+            Long routeId = null;
+
+            List<RouteStop> stops =
+                    routeStopRepository.findByStopNameIgnoreCase(city);
+
+            if (!stops.isEmpty()) {
+
+                RouteStop bestStop = stops.stream()
+                        .filter(stop -> stop.getSequenceNo() != null)
+                        .min(
+                                Comparator.comparing(RouteStop::getSequenceNo)
+                                        .thenComparing(RouteStop::getDistanceFromSource)
+                        )
+                        .orElse(stops.get(0));
+
+                routeId = bestStop.getRoute().getId();
+            }
+            if (routeId == null) {
+
+                List<Route> routes =
+                        routeRepository.findByDestinationLocationIgnoreCase(city);
+
+                if (!routes.isEmpty()) {
+                    routeId = routes.get(0).getId();
+                }
+            }
+
+            if (routeId == null) {
+
+                unmappedOrders.add(
+                        UnmappedOrderDTO.builder()
+                                .orderId(order.getId())
+                                .orderNumber(order.getOrderNumber())
+                                .city(order.getShipToCity())
+                                .customerNumber(order.getCustomerNumber())
+                                .reason("No route found")
+                                .build()
+                );
+
+                continue;
+            }
+
+            routeWiseOrders
+                    .computeIfAbsent(routeId, k -> new ArrayList<>())
+                    .add(
+                            OrderSummaryDTO.builder()
+                                    .orderId(order.getId())
+                                    .orderNumber(order.getOrderNumber())
+                                    .city(order.getShipToCity())
+                                    .customerNumber(order.getCustomerNumber())
+                                    .build()
+                    );
+        }
+
+        List<RouteOrderGroupResponseDTO> mappedRoutes =
+                new ArrayList<>();
+
+        for (Map.Entry<Long, List<OrderSummaryDTO>> entry :
+                routeWiseOrders.entrySet()) {
+
+            Route route = routeRepository
+                    .findById(entry.getKey())
+                    .orElseThrow(() ->
+                            new RuntimeException(
+                                    "Route not found : " + entry.getKey()));
+
+            mappedRoutes.add(
+                    RouteOrderGroupResponseDTO.builder()
+                            .routeId(route.getId())
+                            .routeCode(route.getRouteCode())
+                            .sourceLocation(route.getSourceLocation())
+                            .destinationLocation(route.getDestinationLocation())
+                            .orders(entry.getValue())
+                            .build()
+            );
+        }
+
+        return OrderRouteGroupingResponseDTO.builder()
+                .mappedRoutes(mappedRoutes)
+                .unmappedOrders(unmappedOrders)
+                .build();
+    }
 
     @Override
     public List<JdeSalesOrderResponseDTO> getAllSalesOrders() {

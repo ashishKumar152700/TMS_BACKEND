@@ -15,8 +15,8 @@ public class JdeItemScheduler {
 
 //    @Scheduled(cron = "*/10 * * * * *")
 //@Scheduled(cron = "0 */30 * * * *")
-    @Scheduled(fixedDelay = 10000)
-
+//    @Scheduled(fixedDelay = 10000)
+@Scheduled(fixedDelay = 86400000)
 public void syncItemMaster() {
 
         log.info("Item Master Sync Started");

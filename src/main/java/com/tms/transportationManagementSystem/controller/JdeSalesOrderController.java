@@ -1,6 +1,8 @@
 package com.tms.transportationManagementSystem.controller;
 
 import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.OrderRouteGroupingResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.RouteOrderGroupResponseDTO;
 import com.tms.transportationManagementSystem.service.JdeSalesOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,5 +22,10 @@ public class JdeSalesOrderController {
     public List<JdeSalesOrderResponseDTO> getAllSalesOrders() {
 
         return salesOrderService.getAllSalesOrders();
+    }
+
+    @GetMapping("/group-by-route")
+    public OrderRouteGroupingResponseDTO groupOrdersByRoute() {
+        return salesOrderService.groupOrdersByRoute();
     }
 }

@@ -41,20 +41,20 @@ public class JdeTransporterSyncService {
             List<JdeTransporterResponseDTO> transporters = apiResponse.getTransporters();
 
             if (transporters == null || transporters.isEmpty()) {
-                log.info("No transporters found in JDE response");
+//                log.info("No transporters found in JDE response");
                 return;
             }
 
             for (JdeTransporterResponseDTO dto : transporters) {
-                log.info("Transporter: {}", dto.getCompanyName());
+//                log.info("Transporter: {}", dto.getCompanyName());
 
                 if (dto.getVehicles() != null) {
-                    log.info("Vehicle Count: {}", dto.getVehicles().size());
+//                    log.info("Vehicle Count: {}", dto.getVehicles().size());
 
                     dto.getVehicles().forEach(v ->
                             log.info("Vehicle Number: {}", v.getVehicleNumber()));
                 } else {
-                    log.info("Vehicles list is NULL");
+//                    log.info("Vehicles list is NULL");
                 }
                 Transporter transporter = transporterRepository
                         .findByAddressNumber(dto.getAddressNumber())
@@ -99,14 +99,14 @@ public class JdeTransporterSyncService {
                         vehicleRepository.save(vehicle);
                     }
                 } else {
-                    log.info("No vehicles found for transporter addressNumber={}", dto.getAddressNumber());
+//                    log.info("No vehicles found for transporter addressNumber={}", dto.getAddressNumber());
                 }
             }
 
-            log.info("Transporter and Vehicle Sync Completed");
+//            log.info("Transporter and Vehicle Sync Completed");
 
         } catch (Exception ex) {
-            log.error("Error while syncing transporters and vehicles", ex);
+//            log.error("Error while syncing transporters and vehicles", ex);
         }
     }
 }

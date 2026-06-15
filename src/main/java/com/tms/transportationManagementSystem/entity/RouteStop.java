@@ -18,7 +18,7 @@ public class RouteStop {
 
     private String stopName;
 
-//    private Integer sequenceNo;
+    private Integer sequenceNo;
 
     private Double distanceFromSource;
 

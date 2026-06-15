@@ -13,8 +13,7 @@ public class JdeCustomerScheduler {
 
     private final JdeCustomerSyncService jdeCustomerSyncService;
 
-    @Scheduled(fixedDelay = 10000)
-    public void syncCustomers() {
+    @Scheduled(fixedDelay = 86400000)    public void syncCustomers() {
 
         log.info("Customer Sync Started");
 
