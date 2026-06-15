@@ -39,4 +39,34 @@ public class Customer {
 
     @Column(name = "individual_tax_id")
     private String individualTaxId;
+
+    @Column(name = "gst_number")
+    private String gstNumber;
+
+    @Column(name = "contact_person")
+    private String contactPerson;
+
+    @Column(name = "mobile")
+    private String mobile;
+
+    @Column(name = "email")
+    private String email;
+
+    @Column(name = "city")
+    private String city;
+
+    @Column(name = "state")
+    private String state;
+
+    @Column(name = "pin_code")
+    private String pinCode;
+
+    @Column(name = "country")
+    private String country;
+
+    @Column(name = "active")
+    private String active;
+
+    @Column(name = "remarks")
+    private String remarks;
 }

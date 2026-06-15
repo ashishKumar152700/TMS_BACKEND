@@ -21,6 +21,12 @@ public class JdeSalesOrderResponseDTO {
     private String branchPlant;
     private String status;
     private String currencyCode;
+    private Long shipToCustomerNumber;
+    private String shipToCustomerName;
+    private String shipToAddress1;
+    private String shipToCity;
+    private String shipToState;
+    private String shipToPinCode;
 
     private List<JdeSalesOrderLineDTO> lines;
 }

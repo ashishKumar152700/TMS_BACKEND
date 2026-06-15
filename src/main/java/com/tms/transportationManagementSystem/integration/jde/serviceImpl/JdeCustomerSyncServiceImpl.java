@@ -35,12 +35,20 @@ public class JdeCustomerSyncServiceImpl implements JdeCustomerSyncService {
                     .orElse(new Customer());
 
             customer.setAddressNumber(dto.getAddressNumber());
-
             customer.setAlphaName(dto.getCustomerName());
-
             customer.setLongAddress(dto.getAddress());
-
             customer.setIndividualTaxId(dto.getPanNumber());
+
+            customer.setGstNumber(dto.getGstNumber());
+            customer.setContactPerson(dto.getContactPerson());
+            customer.setMobile(dto.getMobile());
+            customer.setEmail(dto.getEmail());
+            customer.setCity(dto.getCity());
+            customer.setState(dto.getState());
+            customer.setPinCode(dto.getPinCode());
+            customer.setCountry(dto.getCountry());
+            customer.setActive(dto.getActive());
+            customer.setRemarks(dto.getRemarks());
 
             customerRepository.save(customer);
         }

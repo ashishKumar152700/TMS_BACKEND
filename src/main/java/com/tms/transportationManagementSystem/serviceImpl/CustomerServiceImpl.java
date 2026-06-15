@@ -2,6 +2,7 @@ package com.tms.transportationManagementSystem.serviceImpl;
 
 import com.tms.transportationManagementSystem.dto.ResponseDTO.CustomerSalesOrderResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeCustomerResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderLineDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderResponseDTO;
 import com.tms.transportationManagementSystem.entity.JdeSalesOrder;
 import com.tms.transportationManagementSystem.repository.CustomerRepository;
@@ -78,6 +79,31 @@ public class CustomerServiceImpl implements CustomerService {
                                         orderDto.setStatus(order.getStatus());
                                         orderDto.setCurrencyCode(order.getCurrencyCode());
 
+                                        if (order.getLines() != null) {
+
+                                            List<JdeSalesOrderLineDTO> lineDtos =
+                                                    order.getLines()
+                                                            .stream()
+                                                            .map(line -> {
+
+                                                                JdeSalesOrderLineDTO lineDto =
+                                                                        new JdeSalesOrderLineDTO();
+
+                                                                lineDto.setLineNumber(line.getLineNumber());
+                                                                lineDto.setItemNumber(line.getItemNumber());
+                                                                lineDto.setDescription(line.getDescription());
+                                                                lineDto.setQuantity(line.getQuantity());
+                                                                lineDto.setUom(line.getUom());
+                                                                lineDto.setUnitPrice(line.getUnitPrice());
+                                                                lineDto.setLineAmount(line.getLineAmount());
+
+                                                                return lineDto;
+                                                            })
+                                                            .toList();
+
+                                            orderDto.setLines(lineDtos);
+                                        }
+
                                         return orderDto;
                                     })
                                     .toList();
@@ -137,6 +163,31 @@ public class CustomerServiceImpl implements CustomerService {
                                     ? order.getBranchPlant().trim()
                                     : null
                     );
+
+                    if (order.getLines() != null) {
+
+                        List<JdeSalesOrderLineDTO> lineDtos =
+                                order.getLines()
+                                        .stream()
+                                        .map(line -> {
+
+                                            JdeSalesOrderLineDTO lineDto =
+                                                    new JdeSalesOrderLineDTO();
+
+                                            lineDto.setLineNumber(line.getLineNumber());
+                                            lineDto.setItemNumber(line.getItemNumber());
+                                            lineDto.setDescription(line.getDescription());
+                                            lineDto.setQuantity(line.getQuantity());
+                                            lineDto.setUom(line.getUom());
+                                            lineDto.setUnitPrice(line.getUnitPrice());
+                                            lineDto.setLineAmount(line.getLineAmount());
+
+                                            return lineDto;
+                                        })
+                                        .toList();
+
+                        dto.setLines(lineDtos);
+                    }
 
                     return dto;
                 })

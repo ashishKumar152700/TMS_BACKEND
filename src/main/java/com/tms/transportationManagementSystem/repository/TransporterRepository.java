@@ -2,15 +2,16 @@ package com.tms.transportationManagementSystem.repository;
 
 import com.tms.transportationManagementSystem.entity.Transporter;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface TransporterRepository extends JpaRepository<Transporter, Long> {
 
     boolean existsByEmail(String email);
-    Optional<Transporter> findByAddressNumber(
-            Long addressNumber
-    );
+
+    Optional<Transporter> findByAddressNumber(Long addressNumber);
 
     boolean existsByMobile(String mobile);
 
@@ -18,4 +19,18 @@ public interface TransporterRepository extends JpaRepository<Transporter, Long> 
 
     boolean existsByPanNumber(String panNumber);
 
+    @Query("""
+           select distinct t
+           from Transporter t
+           left join fetch t.vehicles
+           """)
+    List<Transporter> findAllWithVehicles();
+
+    @Query("""
+           select t
+           from Transporter t
+           left join fetch t.vehicles
+           where t.id = :id
+           """)
+    Optional<Transporter> findByIdWithVehicles(Long id);
 }

@@ -113,14 +113,12 @@ public class VehicleServiceImpl implements VehicleService {
                 .id(vehicle.getId())
                 .vehicleNumber(vehicle.getVehicleNumber())
                 .vehicleType(vehicle.getVehicleType())
-                .vehicleCategory(vehicle.getVehicleCategory())
                 .maxWeightCapacity(vehicle.getMaxWeightCapacity())
                 .maxVolumeCapacity(vehicle.getMaxVolumeCapacity())
 
                 .gpsDeviceId(vehicle.getGpsDeviceId())
                 .status(vehicle.getStatus())
 
-                .transporterId(vehicle.getTransporter().getId())
-                .transporterName(vehicle.getTransporter().getCompanyName())                .build();
+.build();
     }
 }

@@ -7,13 +7,12 @@ import java.util.List;
 
 public interface ItemService {
 
-    ItemResponseDTO createItem(ItemRequestDTO requestDTO);
+
 
     List<ItemResponseDTO> getAllItems();
 
     ItemResponseDTO getItemById(Long id);
 
-    ItemResponseDTO updateItem(Long id, ItemRequestDTO requestDTO);
 
-    void deleteItem(Long id);
+
 }

@@ -1,8 +1,8 @@
 package com.tms.transportationManagementSystem.service.impl;
 
-
 import com.tms.transportationManagementSystem.dto.RequestDTO.AddTransporterRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.TransporterResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.VehicleResponseDTO;
 import com.tms.transportationManagementSystem.entity.Transporter;
 import com.tms.transportationManagementSystem.repository.TransporterRepository;
 import com.tms.transportationManagementSystem.service.TransporterService;
@@ -19,22 +19,6 @@ public class TransporterServiceImpl implements TransporterService {
 
     @Override
     public TransporterResponseDTO addTransporter(AddTransporterRequestDTO requestDTO) {
-
-//        if (transporterRepository.existsByEmail(requestDTO.getEmail())) {
-//            throw new RuntimeException("Email already exists");
-//        }
-//
-//        if (transporterRepository.existsByMobile(requestDTO.getMobile())) {
-//            throw new RuntimeException("Mobile already exists");
-//        }
-//
-//        if (transporterRepository.existsByGstNumber(requestDTO.getGstNumber())) {
-//            throw new RuntimeException("GST already exists");
-//        }
-//
-//        if (transporterRepository.existsByPanNumber(requestDTO.getPanNumber())) {
-//            throw new RuntimeException("PAN already exists");
-//        }
 
         Transporter transporter = Transporter.builder()
                 .companyName(requestDTO.getCompanyName())
@@ -59,7 +43,7 @@ public class TransporterServiceImpl implements TransporterService {
     @Override
     public List<TransporterResponseDTO> getAllTransporters() {
 
-        return transporterRepository.findAll()
+        return transporterRepository.findAllWithVehicles()
                 .stream()
                 .map(this::mapToDTO)
                 .toList();
@@ -68,7 +52,8 @@ public class TransporterServiceImpl implements TransporterService {
     @Override
     public TransporterResponseDTO getTransporterById(Long id) {
 
-        Transporter transporter = transporterRepository.findById(id)
+        Transporter transporter = transporterRepository
+                .findByIdWithVehicles(id)
                 .orElseThrow(() ->
                         new RuntimeException("Transporter not found"));
 
@@ -112,6 +97,23 @@ public class TransporterServiceImpl implements TransporterService {
 
     private TransporterResponseDTO mapToDTO(Transporter transporter) {
 
+        List<VehicleResponseDTO> vehicles = null;
+
+        if (transporter.getVehicles() != null) {
+            vehicles = transporter.getVehicles()
+                    .stream()
+                    .map(vehicle -> VehicleResponseDTO.builder()
+                            .id(vehicle.getId())
+                            .vehicleNumber(vehicle.getVehicleNumber())
+                            .vehicleType(vehicle.getVehicleType())
+                            .maxWeightCapacity(vehicle.getMaxWeightCapacity())
+                            .maxVolumeCapacity(vehicle.getMaxVolumeCapacity())
+                            .gpsDeviceId(vehicle.getGpsDeviceId())
+                            .status(vehicle.getStatus())
+                            .build())
+                    .toList();
+        }
+
         return TransporterResponseDTO.builder()
                 .id(transporter.getId())
                 .companyName(transporter.getCompanyName())
@@ -124,7 +126,9 @@ public class TransporterServiceImpl implements TransporterService {
                 .city(transporter.getCity())
                 .state(transporter.getState())
                 .pincode(transporter.getPincode())
+                .addressNumber(transporter.getAddressNumber())
                 .status(transporter.getStatus())
+                .vehicles(vehicles)
                 .build();
     }
 }

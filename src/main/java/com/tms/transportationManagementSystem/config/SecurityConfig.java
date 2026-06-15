@@ -3,6 +3,7 @@ package com.tms.transportationManagementSystem.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -23,7 +24,6 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-
         return new BCryptPasswordEncoder();
     }
 
@@ -33,7 +33,6 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
-
                 .csrf(csrf -> csrf.disable())
 
                 .cors(cors -> {})
@@ -47,11 +46,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         .requestMatchers(
-                                "/auth/**",
-                                "/users/**"
+                                HttpMethod.OPTIONS,
+                                "/**"
                         ).permitAll()
 
                         .requestMatchers(
+                                "/auth/**",
+                                "/users/**",
                                 "/error"
                         ).permitAll()
 
@@ -72,11 +73,8 @@ public class SecurityConfig {
         CorsConfiguration configuration =
                 new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                List.of(
-                        "http://localhost:3000",
-                        "http://localhost:5173"
-                )
+        configuration.setAllowedOriginPatterns(
+                List.of("*")
         );
 
         configuration.setAllowedMethods(
@@ -93,7 +91,11 @@ public class SecurityConfig {
                 List.of("*")
         );
 
-        configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(
+                List.of("*")
+        );
+
+        configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();

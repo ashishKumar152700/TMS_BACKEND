@@ -33,27 +33,82 @@ public class JdeSalesOrderSyncServiceImpl
         JdeSalesOrderApiResponse response =
                 jdeSalesOrderClient.getSalesOrders();
 
-        if(response == null || response.getOrders() == null){
+        if (response == null || response.getOrders() == null) {
             return;
         }
 
         for (JdeSalesOrderResponseDTO dto : response.getOrders()) {
 
-            if(orderRepository.findByOrderNumber(dto.getOrderNumber()).isPresent()){
+            if (orderRepository.findByOrderNumber(dto.getOrderNumber()).isPresent()) {
                 continue;
             }
 
             JdeSalesOrder order = new JdeSalesOrder();
 
-            order.setOrderNumber(dto.getOrderNumber() != null ? dto.getOrderNumber().trim() : null);
-            order.setOrderType(dto.getOrderType() != null ? dto.getOrderType().trim() : null);
-            order.setCompany(dto.getCompany() != null ? dto.getCompany().trim() : null);
-            order.setCustomerNumber(dto.getCustomerNumber() != null ? dto.getCustomerNumber().trim() : null);
-            order.setBranchPlant(dto.getBranchPlant() != null ? dto.getBranchPlant().trim() : null);
-            order.setStatus(dto.getStatus() != null ? dto.getStatus().trim() : null);
-            order.setCurrencyCode(dto.getCurrencyCode() != null ? dto.getCurrencyCode().trim() : null);
+            order.setOrderNumber(
+                    dto.getOrderNumber() != null
+                            ? dto.getOrderNumber().trim()
+                            : null);
 
-            if(dto.getOrderDate() != null &&
+            order.setOrderType(
+                    dto.getOrderType() != null
+                            ? dto.getOrderType().trim()
+                            : null);
+
+            order.setCompany(
+                    dto.getCompany() != null
+                            ? dto.getCompany().trim()
+                            : null);
+
+            order.setCustomerNumber(
+                    dto.getCustomerNumber() != null
+                            ? dto.getCustomerNumber().trim()
+                            : null);
+
+            order.setBranchPlant(
+                    dto.getBranchPlant() != null
+                            ? dto.getBranchPlant().trim()
+                            : null);
+
+            order.setStatus(
+                    dto.getStatus() != null
+                            ? dto.getStatus().trim()
+                            : null);
+
+            order.setCurrencyCode(
+                    dto.getCurrencyCode() != null
+                            ? dto.getCurrencyCode().trim()
+                            : null);
+
+            order.setShipToCustomerNumber(
+                    dto.getShipToCustomerNumber());
+
+            order.setShipToCustomerName(
+                    dto.getShipToCustomerName() != null
+                            ? dto.getShipToCustomerName().trim()
+                            : null);
+
+            order.setShipToAddress1(
+                    dto.getShipToAddress1() != null
+                            ? dto.getShipToAddress1().trim()
+                            : null);
+
+            order.setShipToCity(
+                    dto.getShipToCity() != null
+                            ? dto.getShipToCity().trim()
+                            : null);
+
+            order.setShipToState(
+                    dto.getShipToState() != null
+                            ? dto.getShipToState().trim()
+                            : null);
+
+            order.setShipToPinCode(
+                    dto.getShipToPinCode() != null
+                            ? dto.getShipToPinCode().trim()
+                            : null);
+
+            if (dto.getOrderDate() != null &&
                     !dto.getOrderDate().isBlank()) {
 
                 order.setOrderDate(
@@ -61,7 +116,7 @@ public class JdeSalesOrderSyncServiceImpl
                 );
             }
 
-            if(dto.getRequestedDate() != null &&
+            if (dto.getRequestedDate() != null &&
                     !dto.getRequestedDate().isBlank()) {
 
                 order.setRequestedDate(
@@ -71,9 +126,9 @@ public class JdeSalesOrderSyncServiceImpl
 
             order = orderRepository.save(order);
 
-            if(dto.getLines() != null){
+            if (dto.getLines() != null) {
 
-                for(JdeSalesOrderLineDTO lineDto : dto.getLines()){
+                for (JdeSalesOrderLineDTO lineDto : dto.getLines()) {
 
                     JdeSalesOrderLine line =
                             new JdeSalesOrderLine();

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Table(name = "jde_sales_orders")
@@ -33,4 +34,16 @@ public class JdeSalesOrder {
     private String branchPlant;
     private String status;
     private String currencyCode;
+
+    private Long shipToCustomerNumber;
+    private String shipToCustomerName;
+    private String shipToAddress1;
+    private String shipToCity;
+    private String shipToState;
+    private String shipToPinCode;
+
+    @OneToMany(mappedBy = "salesOrder",
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY)
+    private List<JdeSalesOrderLine> lines;
 }

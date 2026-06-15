@@ -3,6 +3,8 @@ package com.tms.transportationManagementSystem.dto.ResponseDTO;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
 public class TransporterResponseDTO {
@@ -19,4 +21,8 @@ public class TransporterResponseDTO {
     private String state;
     private String pincode;
     private String status;
+    private Long addressNumber;
+
+
+    private List<VehicleResponseDTO> vehicles;
 }

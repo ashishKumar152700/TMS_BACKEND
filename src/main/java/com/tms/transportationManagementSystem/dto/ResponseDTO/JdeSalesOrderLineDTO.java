@@ -12,4 +12,5 @@ public class JdeSalesOrderLineDTO {
     private String uom;
     private Double unitPrice;
     private Double lineAmount;
+
 }
