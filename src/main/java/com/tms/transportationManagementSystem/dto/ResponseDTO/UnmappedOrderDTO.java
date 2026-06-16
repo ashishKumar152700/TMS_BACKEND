@@ -12,4 +12,6 @@ public class UnmappedOrderDTO {
     private String city;
     private String customerNumber;
     private String reason;
+
+    private JdeSalesOrderResponseDTO order;
 }

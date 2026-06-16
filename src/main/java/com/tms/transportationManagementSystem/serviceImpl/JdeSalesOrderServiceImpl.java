@@ -29,10 +29,38 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
         List<JdeSalesOrder> orders = orderRepository.findAll();
 
-        Map<Long, List<OrderSummaryDTO>> routeWiseOrders = new HashMap<>();
+        Map<Long, List<JdeSalesOrderResponseDTO>> routeWiseOrders =
+                new LinkedHashMap<>();
+
+        Map<Long, Route> routeCache =
+                new HashMap<>();
 
         List<UnmappedOrderDTO> unmappedOrders =
                 new ArrayList<>();
+
+        // Route Stops Cache
+        Map<Long, List<RouteStopResponseDTO>> routeStopsMap =
+                routeStopRepository.findAll()
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                stop -> stop.getRoute().getId(),
+                                Collectors.mapping(
+                                        stop -> RouteStopResponseDTO.builder()
+                                                .id(stop.getId())
+                                                .stopName(stop.getStopName())
+                                                .distanceFromSource(
+                                                        stop.getDistanceFromSource()
+                                                )
+                                                .routeId(
+                                                        stop.getRoute().getId()
+                                                )
+                                                .routeCode(
+                                                        stop.getRoute().getRouteCode()
+                                                )
+                                                .build(),
+                                        Collectors.toList()
+                                )
+                        ));
 
         for (JdeSalesOrder order : orders) {
 
@@ -42,93 +70,68 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
                 unmappedOrders.add(
                         UnmappedOrderDTO.builder()
-                                .orderId(order.getId())
-                                .orderNumber(order.getOrderNumber())
-                                .city(null)
-                                .customerNumber(order.getCustomerNumber())
                                 .reason("City is blank")
+                                .order(convertToDTO(order))
                                 .build()
                 );
 
                 continue;
             }
 
-            Long routeId = null;
+            Route route = findBestRoute(
+                    city,
+                    routeWiseOrders
+            );
 
-            List<RouteStop> stops =
-                    routeStopRepository.findByStopNameIgnoreCase(city);
-
-            if (!stops.isEmpty()) {
-
-                RouteStop bestStop = stops.stream()
-                        .filter(stop -> stop.getSequenceNo() != null)
-                        .min(
-                                Comparator.comparing(RouteStop::getSequenceNo)
-                                        .thenComparing(RouteStop::getDistanceFromSource)
-                        )
-                        .orElse(stops.get(0));
-
-                routeId = bestStop.getRoute().getId();
-            }
-            if (routeId == null) {
-
-                List<Route> routes =
-                        routeRepository.findByDestinationLocationIgnoreCase(city);
-
-                if (!routes.isEmpty()) {
-                    routeId = routes.get(0).getId();
-                }
-            }
-
-            if (routeId == null) {
+            if (route == null) {
 
                 unmappedOrders.add(
                         UnmappedOrderDTO.builder()
-                                .orderId(order.getId())
-                                .orderNumber(order.getOrderNumber())
-                                .city(order.getShipToCity())
-                                .customerNumber(order.getCustomerNumber())
                                 .reason("No route found")
+                                .order(convertToDTO(order))
                                 .build()
                 );
 
                 continue;
             }
 
+            routeCache.put(route.getId(), route);
+
             routeWiseOrders
-                    .computeIfAbsent(routeId, k -> new ArrayList<>())
-                    .add(
-                            OrderSummaryDTO.builder()
-                                    .orderId(order.getId())
-                                    .orderNumber(order.getOrderNumber())
-                                    .city(order.getShipToCity())
-                                    .customerNumber(order.getCustomerNumber())
-                                    .build()
-                    );
+                    .computeIfAbsent(
+                            route.getId(),
+                            k -> new ArrayList<>()
+                    )
+                    .add(convertToDTO(order));
         }
 
         List<RouteOrderGroupResponseDTO> mappedRoutes =
-                new ArrayList<>();
+                routeWiseOrders.entrySet()
+                        .stream()
+                        .map(entry -> {
 
-        for (Map.Entry<Long, List<OrderSummaryDTO>> entry :
-                routeWiseOrders.entrySet()) {
+                            Route route =
+                                    routeCache.get(entry.getKey());
 
-            Route route = routeRepository
-                    .findById(entry.getKey())
-                    .orElseThrow(() ->
-                            new RuntimeException(
-                                    "Route not found : " + entry.getKey()));
-
-            mappedRoutes.add(
-                    RouteOrderGroupResponseDTO.builder()
-                            .routeId(route.getId())
-                            .routeCode(route.getRouteCode())
-                            .sourceLocation(route.getSourceLocation())
-                            .destinationLocation(route.getDestinationLocation())
-                            .orders(entry.getValue())
-                            .build()
-            );
-        }
+                            return RouteOrderGroupResponseDTO.builder()
+                                    .routeId(route.getId())
+                                    .routeCode(route.getRouteCode())
+                                    .sourceLocation(
+                                            route.getSourceLocation()
+                                    )
+                                    .destinationLocation(
+                                            route.getDestinationLocation()
+                                    )
+                                    .routeStops(
+                                            routeStopsMap.getOrDefault(
+                                                    route.getId(),
+                                                    Collections.emptyList()
+                                            )
+                                    )
+                                    .orders(entry.getValue())
+                                    .build();
+                        })
+                        .collect(Collectors.toList());
 
         return OrderRouteGroupingResponseDTO.builder()
                 .mappedRoutes(mappedRoutes)
@@ -136,68 +139,170 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
                 .build();
     }
 
+
+    private Route findBestRoute(
+            String city,
+            Map<Long, List<JdeSalesOrderResponseDTO>> routeWiseOrders
+    ) {
+
+        List<Route> candidateRoutes = new ArrayList<>();
+
+        // Destination matches
+        candidateRoutes.addAll(
+                routeRepository
+                        .findByDestinationLocationIgnoreCase(city)
+        );
+
+        // Stop matches
+        List<RouteStop> stops =
+                routeStopRepository
+                        .findByStopNameIgnoreCase(city);
+
+        candidateRoutes.addAll(
+                stops.stream()
+                        .map(RouteStop::getRoute)
+                        .collect(Collectors.toList())
+        );
+
+        // Remove duplicate routes
+        candidateRoutes =
+                new ArrayList<>(
+                        candidateRoutes.stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                Route::getId,
+                                                route -> route,
+                                                (r1, r2) -> r1
+                                        )
+                                )
+                                .values()
+                );
+
+        if (candidateRoutes.isEmpty()) {
+            return null;
+        }
+
+        // Prefer route already having more orders
+        return candidateRoutes.stream()
+                .max(
+                        Comparator.comparingInt(
+                                route ->
+                                        routeWiseOrders
+                                                .getOrDefault(
+                                                        route.getId(),
+                                                        Collections.emptyList()
+                                                )
+                                                .size()
+                        )
+                )
+                .orElse(candidateRoutes.get(0));
+    }
+
+
     @Override
     public List<JdeSalesOrderResponseDTO> getAllSalesOrders() {
 
-        List<JdeSalesOrder> orders = orderRepository.findAll();
+        return orderRepository.findAll()
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
 
-        return orders.stream().map(order -> {
+    private JdeSalesOrderResponseDTO convertToDTO(
+            JdeSalesOrder order
+    ) {
 
-            JdeSalesOrderResponseDTO dto = new JdeSalesOrderResponseDTO();
+        JdeSalesOrderResponseDTO dto =
+                new JdeSalesOrderResponseDTO();
 
-            dto.setId(order.getId());
-            dto.setOrderNumber(order.getOrderNumber());
-            dto.setOrderType(order.getOrderType());
-            dto.setCompany(order.getCompany());
-            dto.setCustomerNumber(order.getCustomerNumber());
+        dto.setId(order.getId());
+        dto.setOrderNumber(order.getOrderNumber());
+        dto.setOrderType(order.getOrderType());
+        dto.setCompany(order.getCompany());
+        dto.setCustomerNumber(order.getCustomerNumber());
 
-            dto.setOrderDate(
-                    order.getOrderDate() != null
-                            ? order.getOrderDate().toString()
-                            : null
-            );
+        dto.setOrderDate(
+                order.getOrderDate() != null
+                        ? order.getOrderDate().toString()
+                        : null
+        );
 
-            dto.setRequestedDate(
-                    order.getRequestedDate() != null
-                            ? order.getRequestedDate().toString()
-                            : null
-            );
+        dto.setRequestedDate(
+                order.getRequestedDate() != null
+                        ? order.getRequestedDate().toString()
+                        : null
+        );
 
-            dto.setBranchPlant(order.getBranchPlant());
-            dto.setStatus(order.getStatus());
-            dto.setCurrencyCode(order.getCurrencyCode());
+        dto.setBranchPlant(order.getBranchPlant());
+        dto.setStatus(order.getStatus());
+        dto.setCurrencyCode(order.getCurrencyCode());
 
-            dto.setShipToCustomerNumber(order.getShipToCustomerNumber());
-            dto.setShipToCustomerName(order.getShipToCustomerName());
-            dto.setShipToAddress1(order.getShipToAddress1());
-            dto.setShipToCity(order.getShipToCity());
-            dto.setShipToState(order.getShipToState());
-            dto.setShipToPinCode(order.getShipToPinCode());
+        dto.setShipToCustomerNumber(
+                order.getShipToCustomerNumber()
+        );
 
-            List<JdeSalesOrderLineDTO> lineDtos =
-                    lineRepository.findBySalesOrder(order)
-                            .stream()
-                            .map(line -> {
+        dto.setShipToCustomerName(
+                order.getShipToCustomerName()
+        );
 
-                                JdeSalesOrderLineDTO lineDto =
-                                        new JdeSalesOrderLineDTO();
+        dto.setShipToAddress1(
+                order.getShipToAddress1()
+        );
 
-                                lineDto.setLineNumber(line.getLineNumber());
-                                lineDto.setItemNumber(line.getItemNumber());
-                                lineDto.setDescription(line.getDescription());
-                                lineDto.setQuantity(line.getQuantity());
-                                lineDto.setUom(line.getUom());
-                                lineDto.setUnitPrice(line.getUnitPrice());
-                                lineDto.setLineAmount(line.getLineAmount());
+        dto.setShipToCity(
+                order.getShipToCity()
+        );
 
-                                return lineDto;
-                            })
-                            .collect(Collectors.toList());
+        dto.setShipToState(
+                order.getShipToState()
+        );
 
-            dto.setLines(lineDtos);
+        dto.setShipToPinCode(
+                order.getShipToPinCode()
+        );
 
-            return dto;
+        List<JdeSalesOrderLineDTO> lineDtos =
+                lineRepository.findBySalesOrder(order)
+                        .stream()
+                        .map(line -> {
 
-        }).collect(Collectors.toList());
+                            JdeSalesOrderLineDTO lineDto =
+                                    new JdeSalesOrderLineDTO();
+
+                            lineDto.setLineNumber(
+                                    line.getLineNumber()
+                            );
+
+                            lineDto.setItemNumber(
+                                    line.getItemNumber()
+                            );
+
+                            lineDto.setDescription(
+                                    line.getDescription()
+                            );
+
+                            lineDto.setQuantity(
+                                    line.getQuantity()
+                            );
+
+                            lineDto.setUom(
+                                    line.getUom()
+                            );
+
+                            lineDto.setUnitPrice(
+                                    line.getUnitPrice()
+                            );
+
+                            lineDto.setLineAmount(
+                                    line.getLineAmount()
+                            );
+
+                            return lineDto;
+                        })
+                        .collect(Collectors.toList());
+
+        dto.setLines(lineDtos);
+
+        return dto;
     }
 }
