@@ -1,17 +1,20 @@
 package com.tms.transportationManagementSystem.serviceImpl;
 
+import com.tms.transportationManagementSystem.dto.RequestDTO.AssignRouteRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.*;
 import com.tms.transportationManagementSystem.entity.JdeSalesOrder;
+import com.tms.transportationManagementSystem.entity.OrderRouteMapping;
 import com.tms.transportationManagementSystem.entity.Route;
 import com.tms.transportationManagementSystem.entity.RouteStop;
-import com.tms.transportationManagementSystem.repository.JdeSalesOrderLineRepository;
-import com.tms.transportationManagementSystem.repository.JdeSalesOrderRepository;
-import com.tms.transportationManagementSystem.repository.RouteRepository;
-import com.tms.transportationManagementSystem.repository.RouteStopRepository;
+import com.tms.transportationManagementSystem.repository.*;
 import com.tms.transportationManagementSystem.service.JdeSalesOrderService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -23,6 +26,143 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
     private final JdeSalesOrderLineRepository lineRepository;
     private final RouteRepository routeRepository;
     private final RouteStopRepository routeStopRepository;
+    private final OrderRouteMappingRepository mappingRepository;
+
+
+    @Transactional
+    @Override
+    public String assignRoute(
+            AssignRouteRequestDTO request) {
+
+        JdeSalesOrder order =
+                orderRepository
+                        .findById(request.getOrderId())
+                        .orElseThrow();
+
+        Route route =
+                routeRepository
+                        .findById(request.getRouteId())
+                        .orElseThrow();
+
+        boolean valid =
+                route.getDestinationLocation()
+                        .equalsIgnoreCase(
+                                order.getShipToCity())
+                        ||
+                        route.getRouteStops()
+                                .stream()
+                                .anyMatch(stop ->
+                                        stop.getStopName()
+                                                .equalsIgnoreCase(
+                                                        order.getShipToCity()
+                                                ));
+
+        if (!valid) {
+            throw new RuntimeException(
+                    "Route does not cover destination");
+        }
+
+        OrderRouteMapping mapping =
+                mappingRepository
+                        .findByOrderId(
+                                request.getOrderId())
+                        .orElse(
+                                new OrderRouteMapping());
+
+        mapping.setOrder(order);
+        mapping.setRoute(route);
+        mapping.setAssignmentType("MANUAL");
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        String loggedInUser =
+                authentication.getName();
+
+        mapping.setAssignedBy(loggedInUser);
+        mapping.setAssignedAt(
+                LocalDateTime.now());
+
+        mappingRepository.save(mapping);
+
+        return "Route assigned successfully";
+    }
+
+    @Override
+    public AvailableRouteAssignmentResponseDTO
+    getAvailableRoutes(Long orderId) {
+
+        JdeSalesOrder order =
+                orderRepository.findById(orderId)
+                        .orElseThrow();
+
+        String city = order.getShipToCity();
+
+        List<Route> routes = new ArrayList<>();
+
+        routes.addAll(
+                routeRepository
+                        .findByDestinationLocationIgnoreCase(city)
+        );
+
+        routes.addAll(
+                routeStopRepository
+                        .findByStopNameIgnoreCase(city)
+                        .stream()
+                        .map(RouteStop::getRoute)
+                        .toList()
+        );
+
+        List<Route> uniqueRoutes =
+                new ArrayList<>(
+                        routes.stream()
+                                .collect(Collectors.toMap(
+                                        Route::getId,
+                                        r -> r,
+                                        (a,b) -> a
+                                ))
+                                .values()
+                );
+
+        // Routes already having orders
+        Set<Long> activeRouteIds =
+                groupOrdersByRoute()
+                        .getMappedRoutes()
+                        .stream()
+                        .map(RouteOrderGroupResponseDTO::getRouteId)
+                        .collect(Collectors.toSet());
+
+        List<AvailableRouteResponseDTO> existingRoutes =
+                uniqueRoutes.stream()
+                        .filter(route ->
+                                activeRouteIds.contains(route.getId()))
+                        .map(this::convertRouteDTO)
+                        .toList();
+
+        List<AvailableRouteResponseDTO> newRoutes =
+                uniqueRoutes.stream()
+                        .filter(route ->
+                                !activeRouteIds.contains(route.getId()))
+                        .map(this::convertRouteDTO)
+                        .toList();
+
+        return AvailableRouteAssignmentResponseDTO.builder()
+                .existingRoutes(existingRoutes)
+                .newRoutes(newRoutes)
+                .build();
+    }
+
+    private AvailableRouteResponseDTO convertRouteDTO(
+            Route route) {
+
+        return AvailableRouteResponseDTO.builder()
+                .routeId(route.getId())
+                .routeCode(route.getRouteCode())
+                .sourceLocation(route.getSourceLocation())
+                .destinationLocation(route.getDestinationLocation())
+                .build();
+    }
 
     @Override
     public OrderRouteGroupingResponseDTO groupOrdersByRoute() {
@@ -78,11 +218,24 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
                 continue;
             }
 
-            Route route = findBestRoute(
-                    city,
-                    routeWiseOrders
-            );
+            OrderRouteMapping manualMapping =
+                    mappingRepository
+                            .findByOrderId(order.getId())
+                            .orElse(null);
 
+            Route route;
+
+            if(manualMapping != null)
+            {
+                route = manualMapping.getRoute();
+            }
+            else
+            {
+                route = findBestRoute(
+                        city,
+                        routeWiseOrders
+                );
+            }
             if (route == null) {
 
                 unmappedOrders.add(
