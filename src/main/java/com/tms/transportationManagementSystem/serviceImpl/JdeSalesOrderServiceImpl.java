@@ -29,6 +29,252 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
     private final OrderRouteMappingRepository mappingRepository;
 
 
+    @Override
+    public CustomerOrderGroupingResponseDTO groupOrdersByCustomer() {
+
+        List<JdeSalesOrder> orders = orderRepository.findAll();
+
+        Map<String, List<JdeSalesOrderResponseDTO>> customerOrders =
+                new LinkedHashMap<>();
+
+        Map<String, String> customerNames =
+                new HashMap<>();
+
+        for (JdeSalesOrder order : orders) {
+
+            String customerNumber = order.getCustomerNumber();
+
+            if (customerNumber == null || customerNumber.isBlank()) {
+                continue;
+            }
+
+            customerNames.put(
+                    customerNumber,
+                    order.getShipToCustomerName()
+            );
+
+            customerOrders
+                    .computeIfAbsent(
+                            customerNumber,
+                            k -> new ArrayList<>()
+                    )
+                    .add(convertToDTO(order));
+        }
+
+        List<CustomerOrderGroupResponseDTO> customers =
+                customerOrders.entrySet()
+                        .stream()
+                        .map(entry ->
+                                CustomerOrderGroupResponseDTO.builder()
+                                        .customerNumber(entry.getKey())
+                                        .customerName(customerNames.get(entry.getKey()))
+                                        .orders(entry.getValue())
+                                        .build()
+                        )
+                        .toList();
+
+        return CustomerOrderGroupingResponseDTO.builder()
+                .customers(customers)
+                .build();
+    }
+    @Override
+    public CustomerRouteGroupingResponseDTO
+    groupOrdersByCustomerAndRoute() {
+
+        List<JdeSalesOrder> orders =
+                orderRepository.findAll();
+
+        Map<String,
+                Map<Long,
+                        List<JdeSalesOrderResponseDTO>>>
+                customerRouteOrders =
+                new LinkedHashMap<>();
+
+        Map<String, String> customerNames =
+                new HashMap<>();
+
+        Map<Long, Route> routeCache =
+                new HashMap<>();
+
+        List<UnmappedOrderDTO> unmappedOrders =
+                new ArrayList<>();
+
+        Map<Long, List<JdeSalesOrderResponseDTO>>
+                routeWiseOrders =
+                new HashMap<>();
+
+        Map<Long, List<RouteStopResponseDTO>>
+                routeStopsMap =
+                routeStopRepository.findAll()
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                stop -> stop.getRoute().getId(),
+                                Collectors.mapping(
+                                        stop -> RouteStopResponseDTO.builder()
+                                                .id(stop.getId())
+                                                .stopName(stop.getStopName())
+                                                .distanceFromSource(
+                                                        stop.getDistanceFromSource()
+                                                )
+                                                .routeId(
+                                                        stop.getRoute().getId()
+                                                )
+                                                .routeCode(
+                                                        stop.getRoute().getRouteCode()
+                                                )
+                                                .build(),
+                                        Collectors.toList()
+                                )
+                        ));
+
+        for (JdeSalesOrder order : orders) {
+
+            String city =
+                    order.getShipToCity();
+
+            if (city == null ||
+                    city.trim().isEmpty()) {
+
+                unmappedOrders.add(
+                        UnmappedOrderDTO.builder()
+                                .reason("City is blank")
+                                .order(convertToDTO(order))
+                                .build()
+                );
+
+                continue;
+            }
+
+            OrderRouteMapping manualMapping =
+                    mappingRepository
+                            .findByOrderId(order.getId())
+                            .orElse(null);
+
+            Route route;
+
+            if (manualMapping != null) {
+
+                route = manualMapping.getRoute();
+
+            } else {
+
+                route = findBestRoute(
+                        city,
+                        routeWiseOrders
+                );
+            }
+
+            if (route == null) {
+
+                unmappedOrders.add(
+                        UnmappedOrderDTO.builder()
+                                .reason("No route found")
+                                .order(convertToDTO(order))
+                                .build()
+                );
+
+                continue;
+            }
+
+            routeCache.put(
+                    route.getId(),
+                    route
+            );
+
+            JdeSalesOrderResponseDTO orderDTO =
+                    convertToDTO(order);
+
+            routeWiseOrders
+                    .computeIfAbsent(
+                            route.getId(),
+                            k -> new ArrayList<>()
+                    )
+                    .add(orderDTO);
+
+            customerNames.put(
+                    order.getCustomerNumber(),
+                    order.getShipToCustomerName()
+            );
+
+            customerRouteOrders
+                    .computeIfAbsent(
+                            order.getCustomerNumber(),
+                            k -> new LinkedHashMap<>()
+                    )
+                    .computeIfAbsent(
+                            route.getId(),
+                            k -> new ArrayList<>()
+                    )
+                    .add(orderDTO);
+        }
+
+        List<CustomerRouteGroupResponseDTO>
+                customers =
+                customerRouteOrders.entrySet()
+                        .stream()
+                        .map(customerEntry -> {
+
+                            List<RouteOrderGroupResponseDTO>
+                                    routes =
+                                    customerEntry.getValue()
+                                            .entrySet()
+                                            .stream()
+                                            .map(routeEntry -> {
+
+                                                Route route =
+                                                        routeCache.get(
+                                                                routeEntry.getKey()
+                                                        );
+
+                                                return RouteOrderGroupResponseDTO
+                                                        .builder()
+                                                        .routeId(
+                                                                route.getId()
+                                                        )
+                                                        .routeCode(
+                                                                route.getRouteCode()
+                                                        )
+                                                        .sourceLocation(
+                                                                route.getSourceLocation()
+                                                        )
+                                                        .destinationLocation(
+                                                                route.getDestinationLocation()
+                                                        )
+                                                        .routeStops(
+                                                                routeStopsMap.getOrDefault(
+                                                                        route.getId(),
+                                                                        Collections.emptyList()
+                                                                )
+                                                        )
+                                                        .orders(
+                                                                routeEntry.getValue()
+                                                        )
+                                                        .build();
+                                            })
+                                            .toList();
+
+                            return CustomerRouteGroupResponseDTO
+                                    .builder()
+                                    .customerNumber(
+                                            customerEntry.getKey()
+                                    )
+                                    .customerName(
+                                            customerNames.get(
+                                                    customerEntry.getKey()
+                                            )
+                                    )
+                                    .routes(routes)
+                                    .build();
+                        })
+                        .toList();
+
+        return CustomerRouteGroupingResponseDTO
+                .builder()
+                .customers(customers)
+                .unmappedOrders(unmappedOrders)
+                .build();
+    }
+
     @Transactional
     @Override
     public String assignRoute(
@@ -164,7 +410,7 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
                 .build();
     }
 
-    @Override
+
     public OrderRouteGroupingResponseDTO groupOrdersByRoute() {
 
         List<JdeSalesOrder> orders = orderRepository.findAll();

@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -42,8 +43,22 @@ public class JdeSalesOrder {
     private String shipToState;
     private String shipToPinCode;
 
-    @OneToMany(mappedBy = "salesOrder",
+    // Weight Details
+    @Column(precision = 15, scale = 3)
+    private BigDecimal totalWeight;
+
+    private String weightUnit;
+
+    // Volume Details
+    @Column(precision = 15, scale = 3)
+    private BigDecimal totalVolume;
+
+    private String volumeUnit;
+
+    @OneToMany(
+            mappedBy = "salesOrder",
             cascade = CascadeType.ALL,
-            fetch = FetchType.LAZY)
+            fetch = FetchType.LAZY
+    )
     private List<JdeSalesOrderLine> lines;
 }

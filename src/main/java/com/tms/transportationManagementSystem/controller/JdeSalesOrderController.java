@@ -1,6 +1,8 @@
 package com.tms.transportationManagementSystem.controller;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.AssignRouteRequestDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.CustomerOrderGroupingResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.CustomerRouteGroupingResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.OrderRouteGroupingResponseDTO;
 import com.tms.transportationManagementSystem.service.JdeSalesOrderService;
@@ -22,10 +24,10 @@ public class JdeSalesOrderController {
         return salesOrderService.getAllSalesOrders();
     }
 
-    @GetMapping("/group-by-route")
-    public OrderRouteGroupingResponseDTO groupOrdersByRoute() {
-        return salesOrderService.groupOrdersByRoute();
-    }
+//    @GetMapping("/group-by-route")
+//    public OrderRouteGroupingResponseDTO groupOrdersByRoute() {
+//        return salesOrderService.groupOrdersByRoute();
+//    }
 
     @PutMapping("/orders/assign-route")
     public ResponseEntity<?> assignRoute(
@@ -43,5 +45,18 @@ public class JdeSalesOrderController {
         return ResponseEntity.ok(
                 salesOrderService.getAvailableRoutes(orderId)
         );
+    }
+    @GetMapping("/group-by-customer")
+    public CustomerOrderGroupingResponseDTO
+    groupOrdersByCustomer() {
+
+        return salesOrderService.groupOrdersByCustomer();
+    }
+    @GetMapping("/customer-route-groups")
+    public CustomerRouteGroupingResponseDTO
+    groupOrdersByCustomerAndRoute() {
+
+        return salesOrderService
+                .groupOrdersByCustomerAndRoute();
     }
 }

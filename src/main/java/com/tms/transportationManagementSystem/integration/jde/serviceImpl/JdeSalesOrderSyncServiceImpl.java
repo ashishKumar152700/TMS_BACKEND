@@ -108,19 +108,25 @@ public class JdeSalesOrderSyncServiceImpl
                             ? dto.getShipToPinCode().trim()
                             : null);
 
+            order.setTotalWeight(dto.getTotalWeight());
+
+            order.setWeightUnit(
+                    dto.getWeightUnit() != null
+                            ? dto.getWeightUnit().trim()
+                            : null);
+
+            order.setTotalVolume(dto.getTotalVolume());
+
+            order.setVolumeUnit(
+                    dto.getVolumeUnit() != null
+                            ? dto.getVolumeUnit().trim()
+                            : null);
+
             if (dto.getOrderDate() != null &&
                     !dto.getOrderDate().isBlank()) {
 
                 order.setOrderDate(
                         LocalDate.parse(dto.getOrderDate())
-                );
-            }
-
-            if (dto.getRequestedDate() != null &&
-                    !dto.getRequestedDate().isBlank()) {
-
-                order.setRequestedDate(
-                        LocalDate.parse(dto.getRequestedDate())
                 );
             }
 

@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -27,6 +28,11 @@ public class JdeSalesOrderResponseDTO {
     private String shipToCity;
     private String shipToState;
     private String shipToPinCode;
+    private BigDecimal totalWeight;
+    private String weightUnit;
+
+    private BigDecimal totalVolume;
+    private String volumeUnit;
 
     private List<JdeSalesOrderLineDTO> lines;
 }
