@@ -43,13 +43,11 @@ public class JdeSalesOrder {
     private String shipToState;
     private String shipToPinCode;
 
-    // Weight Details
     @Column(precision = 15, scale = 3)
     private BigDecimal totalWeight;
 
     private String weightUnit;
 
-    // Volume Details
     @Column(precision = 15, scale = 3)
     private BigDecimal totalVolume;
 

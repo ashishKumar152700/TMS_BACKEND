@@ -22,4 +22,8 @@ public interface JdeSalesOrderService {
 
     CustomerRouteGroupingResponseDTO
     groupOrdersByCustomerAndRoute();
+
+
+
+    VehicleSuggestionResponseDTO suggestVehicle(Long orderId);
 }

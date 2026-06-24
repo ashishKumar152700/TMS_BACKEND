@@ -2,10 +2,7 @@ package com.tms.transportationManagementSystem.serviceImpl;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.AssignRouteRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.*;
-import com.tms.transportationManagementSystem.entity.JdeSalesOrder;
-import com.tms.transportationManagementSystem.entity.OrderRouteMapping;
-import com.tms.transportationManagementSystem.entity.Route;
-import com.tms.transportationManagementSystem.entity.RouteStop;
+import com.tms.transportationManagementSystem.entity.*;
 import com.tms.transportationManagementSystem.repository.*;
 import com.tms.transportationManagementSystem.service.JdeSalesOrderService;
 import jakarta.transaction.Transactional;
@@ -27,7 +24,53 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
     private final RouteRepository routeRepository;
     private final RouteStopRepository routeStopRepository;
     private final OrderRouteMappingRepository mappingRepository;
+    private final VehicleRepository vehicleRepository;
 
+    @Override
+    public VehicleSuggestionResponseDTO suggestVehicle(Long orderId) {
+
+        JdeSalesOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        double orderWeight = order.getTotalWeight().doubleValue();
+        double orderVolume = order.getTotalVolume().doubleValue();
+
+        System.out.println("Order Weight = " + orderWeight);
+        System.out.println("Order Volume = " + orderVolume);
+
+        List<Vehicle> vehicles = vehicleRepository.findAll();
+
+        System.out.println("Vehicle Count = " + vehicles.size());
+
+        for (Vehicle v : vehicles) {
+            System.out.println(
+                    v.getVehicleNumber()
+                            + " Weight=" + v.getMaxWeightCapacity()
+                            + " Volume=" + v.getMaxVolumeCapacity()
+            );
+        }
+
+        Vehicle bestVehicle = vehicles.stream()
+                .filter(v ->
+                        v.getMaxWeightCapacity() >= orderWeight
+                                &&
+                                v.getMaxVolumeCapacity() >= orderVolume
+                )
+                .min(Comparator.comparingDouble(Vehicle::getMaxWeightCapacity))
+                .orElseThrow(() ->
+                        new RuntimeException("No suitable vehicle found"));
+
+        return VehicleSuggestionResponseDTO.builder()
+                .vehicleId(bestVehicle.getId())
+                .vehicleNumber(bestVehicle.getVehicleNumber())
+                .vehicleType(bestVehicle.getVehicleType())
+                .maxWeightCapacity(bestVehicle.getMaxWeightCapacity())
+                .maxVolumeCapacity(bestVehicle.getMaxVolumeCapacity())
+                .orderWeight(orderWeight)
+                .orderVolume(orderVolume)
+                .reason("Best Fit Vehicle")
+                .build();
+    }
 
     @Override
     public CustomerOrderGroupingResponseDTO groupOrdersByCustomer() {
@@ -137,6 +180,10 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
                 unmappedOrders.add(
                         UnmappedOrderDTO.builder()
+                                .orderId(order.getId())
+                                .orderNumber(order.getOrderNumber())
+                                .customerNumber(order.getCustomerNumber())
+                                .city(order.getShipToCity())
                                 .reason("City is blank")
                                 .order(convertToDTO(order))
                                 .build()
@@ -168,6 +215,10 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
                 unmappedOrders.add(
                         UnmappedOrderDTO.builder()
+                                .orderId(order.getId())
+                                .orderNumber(order.getOrderNumber())
+                                .customerNumber(order.getCustomerNumber())
+                                .city(order.getShipToCity())
                                 .reason("No route found")
                                 .order(convertToDTO(order))
                                 .build()
@@ -456,6 +507,10 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
                 unmappedOrders.add(
                         UnmappedOrderDTO.builder()
+                                .orderId(order.getId())
+                                .orderNumber(order.getOrderNumber())
+                                .customerNumber(order.getCustomerNumber())
+                                .city(order.getShipToCity())
                                 .reason("City is blank")
                                 .order(convertToDTO(order))
                                 .build()
@@ -486,6 +541,10 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
                 unmappedOrders.add(
                         UnmappedOrderDTO.builder()
+                                .orderId(order.getId())
+                                .orderNumber(order.getOrderNumber())
+                                .customerNumber(order.getCustomerNumber())
+                                .city(order.getShipToCity())
                                 .reason("No route found")
                                 .order(convertToDTO(order))
                                 .build()
@@ -658,6 +717,22 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
         dto.setShipToPinCode(
                 order.getShipToPinCode()
+        );
+
+        dto.setTotalWeight(
+                order.getTotalWeight()
+        );
+
+        dto.setWeightUnit(
+                order.getWeightUnit()
+        );
+
+        dto.setTotalVolume(
+                order.getTotalVolume()
+        );
+
+        dto.setVolumeUnit(
+                order.getVolumeUnit()
         );
 
         List<JdeSalesOrderLineDTO> lineDtos =

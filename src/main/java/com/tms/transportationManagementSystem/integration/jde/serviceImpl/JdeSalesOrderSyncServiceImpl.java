@@ -19,8 +19,7 @@ import java.time.LocalDate;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class JdeSalesOrderSyncServiceImpl
-        implements JdeSalesOrderSyncService {
+public class JdeSalesOrderSyncServiceImpl implements JdeSalesOrderSyncService {
 
     private final JdeSalesOrderClient jdeSalesOrderClient;
     private final JdeSalesOrderRepository orderRepository;
@@ -108,6 +107,7 @@ public class JdeSalesOrderSyncServiceImpl
                             ? dto.getShipToPinCode().trim()
                             : null);
 
+            // Weight & Volume
             order.setTotalWeight(dto.getTotalWeight());
 
             order.setWeightUnit(
@@ -127,6 +127,14 @@ public class JdeSalesOrderSyncServiceImpl
 
                 order.setOrderDate(
                         LocalDate.parse(dto.getOrderDate())
+                );
+            }
+
+            if (dto.getRequestedDate() != null &&
+                    !dto.getRequestedDate().isBlank()) {
+
+                order.setRequestedDate(
+                        LocalDate.parse(dto.getRequestedDate())
                 );
             }
 

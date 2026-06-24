@@ -1,10 +1,7 @@
 package com.tms.transportationManagementSystem.controller;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.AssignRouteRequestDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.CustomerOrderGroupingResponseDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.CustomerRouteGroupingResponseDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderResponseDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.OrderRouteGroupingResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.*;
 import com.tms.transportationManagementSystem.service.JdeSalesOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +21,15 @@ public class JdeSalesOrderController {
         return salesOrderService.getAllSalesOrders();
     }
 
+
+    @GetMapping("/orders/{orderId}/suggested-vehicle")
+    public ResponseEntity<VehicleSuggestionResponseDTO> suggestVehicle(
+            @PathVariable Long orderId) {
+
+        return ResponseEntity.ok(
+                salesOrderService.suggestVehicle(orderId)
+        );
+    }
 //    @GetMapping("/group-by-route")
 //    public OrderRouteGroupingResponseDTO groupOrdersByRoute() {
 //        return salesOrderService.groupOrdersByRoute();
