@@ -1,4 +1,4 @@
-package enums;
+package com.tms.transportationManagementSystem.enums;
 
 public enum ShipmentStatus {
 
@@ -12,9 +12,11 @@ public enum ShipmentStatus {
 
     VEHICLE_ASSIGNED,
 
+    DISPATCHED,
+
     IN_TRANSIT,
 
     DELIVERED,
 
-    CANCELLED
+    CLOSED
 }

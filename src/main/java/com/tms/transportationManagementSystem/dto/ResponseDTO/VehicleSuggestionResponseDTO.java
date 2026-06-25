@@ -9,9 +9,14 @@ import lombok.*;
 @NoArgsConstructor
 public class VehicleSuggestionResponseDTO {
 
-    private Long vehicleId;
-    private String vehicleNumber;
-    private String vehicleType;
+    private Boolean availableInFleet;
+
+//    private Long vehicleId;
+//    private String vehicleNumber;
+//    private String vehicleType;
+
+    private String recommendedVehicleType;
+//    private String message;
 
     private Double maxWeightCapacity;
     private Double maxVolumeCapacity;

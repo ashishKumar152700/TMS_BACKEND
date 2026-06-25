@@ -1,19 +1,19 @@
 package com.tms.transportationManagementSystem.service;
 
-import com.tms.transportationManagementSystem.dto.RequestDTO.CreateShipmentBidDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidDTO;
+import com.tms.transportationManagementSystem.dto.RequestDTO.ShipmentBidRequestDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidResponseDTO;
 
 import java.util.List;
 
 public interface ShipmentBidService {
 
-    ShipmentBidDTO createBid(
-            CreateShipmentBidDTO dto
-    );
+    String openBidding(Long shipmentId);
 
-    List<ShipmentBidDTO> getBidsByShipment(
-            Long shipmentId
-    );
+    ShipmentBidResponseDTO placeBid(
+            ShipmentBidRequestDTO request);
 
-    ShipmentBidDTO acceptBid(Long bidId);
+    List<ShipmentBidResponseDTO>
+    getShipmentBids(Long shipmentId);
+
+    String acceptBid(Long bidId);
 }

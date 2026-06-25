@@ -26,4 +26,6 @@ public interface JdeSalesOrderService {
 
 
     VehicleSuggestionResponseDTO suggestVehicle(Long orderId);
+
+
 }

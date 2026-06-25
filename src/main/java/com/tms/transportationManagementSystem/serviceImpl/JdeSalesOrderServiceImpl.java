@@ -3,6 +3,7 @@ package com.tms.transportationManagementSystem.serviceImpl;
 import com.tms.transportationManagementSystem.dto.RequestDTO.AssignRouteRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.*;
 import com.tms.transportationManagementSystem.entity.*;
+import com.tms.transportationManagementSystem.enums.OrderStatus;
 import com.tms.transportationManagementSystem.repository.*;
 import com.tms.transportationManagementSystem.service.JdeSalesOrderService;
 import jakarta.transaction.Transactional;
@@ -26,6 +27,8 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
     private final OrderRouteMappingRepository mappingRepository;
     private final VehicleRepository vehicleRepository;
 
+
+
     @Override
     public VehicleSuggestionResponseDTO suggestVehicle(Long orderId) {
 
@@ -35,20 +38,7 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
         double orderWeight = order.getTotalWeight().doubleValue();
         double orderVolume = order.getTotalVolume().doubleValue();
 
-        System.out.println("Order Weight = " + orderWeight);
-        System.out.println("Order Volume = " + orderVolume);
-
         List<Vehicle> vehicles = vehicleRepository.findAll();
-
-        System.out.println("Vehicle Count = " + vehicles.size());
-
-        for (Vehicle v : vehicles) {
-            System.out.println(
-                    v.getVehicleNumber()
-                            + " Weight=" + v.getMaxWeightCapacity()
-                            + " Volume=" + v.getMaxVolumeCapacity()
-            );
-        }
 
         Vehicle bestVehicle = vehicles.stream()
                 .filter(v ->
@@ -56,19 +46,39 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
                                 &&
                                 v.getMaxVolumeCapacity() >= orderVolume
                 )
-                .min(Comparator.comparingDouble(Vehicle::getMaxWeightCapacity))
+                .min(Comparator.comparingDouble(v -> {
+
+                    double remainingVolume =
+                            v.getMaxVolumeCapacity() - orderVolume;
+
+                    double remainingWeight =
+                            v.getMaxWeightCapacity() - orderWeight;
+
+                    // Volume ko highest priority
+                    return remainingVolume + (remainingWeight / 1000.0);
+
+                }))
                 .orElseThrow(() ->
                         new RuntimeException("No suitable vehicle found"));
 
+        double weightUtilization =
+                (orderWeight / bestVehicle.getMaxWeightCapacity()) * 100;
+
+        double volumeUtilization =
+                (orderVolume / bestVehicle.getMaxVolumeCapacity()) * 100;
+
         return VehicleSuggestionResponseDTO.builder()
-                .vehicleId(bestVehicle.getId())
-                .vehicleNumber(bestVehicle.getVehicleNumber())
-                .vehicleType(bestVehicle.getVehicleType())
+                .availableInFleet(true)
+                .recommendedVehicleType(bestVehicle.getVehicleType())
                 .maxWeightCapacity(bestVehicle.getMaxWeightCapacity())
                 .maxVolumeCapacity(bestVehicle.getMaxVolumeCapacity())
                 .orderWeight(orderWeight)
                 .orderVolume(orderVolume)
-                .reason("Best Fit Vehicle")
+                .reason(String.format(
+                        "Weight Utilization %.2f%% | Volume Utilization %.2f%%",
+                        weightUtilization,
+                        volumeUtilization
+                ))
                 .build();
     }
 
@@ -120,6 +130,7 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
                 .customers(customers)
                 .build();
     }
+
     @Override
     public CustomerRouteGroupingResponseDTO
     groupOrdersByCustomerAndRoute() {
@@ -191,6 +202,12 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
 
                 continue;
             }
+
+            if (order.getOrderStatus() == OrderStatus.NEW) {
+                order.setOrderStatus(OrderStatus.ROUTE_ASSIGNED);
+                orderRepository.save(order);
+            }
+
 
             OrderRouteMapping manualMapping =
                     mappingRepository
@@ -382,6 +399,9 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
                 LocalDateTime.now());
 
         mappingRepository.save(mapping);
+
+        order.setOrderStatus(OrderStatus.ROUTE_ASSIGNED);
+        orderRepository.save(order);
 
         return "Route assigned successfully";
     }

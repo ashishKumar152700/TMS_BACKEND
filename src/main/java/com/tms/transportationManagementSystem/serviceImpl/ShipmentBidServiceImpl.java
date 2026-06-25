@@ -1,274 +1,150 @@
 package com.tms.transportationManagementSystem.serviceImpl;
 
-import com.tms.transportationManagementSystem.dto.RequestDTO.CreateShipmentBidDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidDTO;
+import com.tms.transportationManagementSystem.dto.RequestDTO.ShipmentBidRequestDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidResponseDTO;
 import com.tms.transportationManagementSystem.entity.Shipment;
 import com.tms.transportationManagementSystem.entity.ShipmentBid;
 import com.tms.transportationManagementSystem.entity.Transporter;
+import com.tms.transportationManagementSystem.enums.ShipmentBidStatus;
+import com.tms.transportationManagementSystem.enums.ShipmentStatus;
 import com.tms.transportationManagementSystem.repository.ShipmentBidRepository;
 import com.tms.transportationManagementSystem.repository.ShipmentRepository;
 import com.tms.transportationManagementSystem.repository.TransporterRepository;
 import com.tms.transportationManagementSystem.service.ShipmentBidService;
-import enums.ShipmentBidStatus;
-import enums.ShipmentStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
+@Transactional
 public class ShipmentBidServiceImpl
         implements ShipmentBidService {
 
-    private final ShipmentBidRepository
-            shipmentBidRepository;
+    private final ShipmentRepository shipmentRepository;
+    private final ShipmentBidRepository shipmentBidRepository;
+    private final TransporterRepository transporterRepository;
 
-    private final ShipmentRepository
-            shipmentRepository;
+    @Override
+    public String openBidding(Long shipmentId) {
 
-    private final TransporterRepository
-            transporterRepository;
+        Shipment shipment =
+                shipmentRepository.findById(shipmentId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Shipment not found"));
 
-    public ShipmentBidServiceImpl(
-            ShipmentBidRepository shipmentBidRepository,
-            ShipmentRepository shipmentRepository,
-            TransporterRepository transporterRepository
-    ) {
-        this.shipmentBidRepository =
-                shipmentBidRepository;
+        shipment.setStatus(
+                ShipmentStatus.BIDDING_OPEN);
 
-        this.shipmentRepository =
-                shipmentRepository;
+        shipmentRepository.save(shipment);
 
-        this.transporterRepository =
-                transporterRepository;
+        return "Bidding opened successfully";
     }
 
     @Override
-    public ShipmentBidDTO createBid(
-            CreateShipmentBidDTO dto
-    ) {
+    public ShipmentBidResponseDTO placeBid(
+            ShipmentBidRequestDTO request) {
 
         Shipment shipment =
                 shipmentRepository.findById(
-                                dto.getShipmentId()
-                        )
+                                request.getShipmentId())
                         .orElseThrow(() ->
                                 new RuntimeException(
-                                        "Shipment not found"
-                                )
-                        );
+                                        "Shipment not found"));
 
         Transporter transporter =
                 transporterRepository.findById(
-                                dto.getTransporterId()
-                        )
+                                request.getTransporterId())
                         .orElseThrow(() ->
                                 new RuntimeException(
-                                        "Transporter not found"
-                                )
-                        );
+                                        "Transporter not found"));
 
-        ShipmentBid shipmentBid =
-                new ShipmentBid();
+        ShipmentBid bid = new ShipmentBid();
 
-        shipmentBid.setShipmentId(
-                shipment.getId()
-        );
-
-        shipmentBid.setTransporterId(
-                transporter.getId()
-        );
-
-        shipmentBid.setBidAmount(
-                dto.getBidAmount()
-        );
-
-        shipmentBid.setRemarks(
-                dto.getRemarks()
-        );
-
-        shipmentBid.setStatus(
-                ShipmentBidStatus.PENDING
-        );
-
-        shipmentBid.setCreatedAt(
-                LocalDateTime.now()
-        );
-
+        bid.setShipment(shipment);
+        bid.setTransporter(transporter);
+        bid.setBidAmount(request.getBidAmount());
+        bid.setVehicleCount(request.getVehicleCount());
+        bid.setRemarks(request.getRemarks());
+        bid.setBidDate(LocalDateTime.now());
+        bid.setBidStatus(ShipmentBidStatus.PENDING);
         ShipmentBid savedBid =
-                shipmentBidRepository.save(
-                        shipmentBid
-                );
+                shipmentBidRepository.save(bid);
 
-        return mapToDTO(
-                savedBid,
-                shipment,
-                transporter
-        );
+        return mapToResponse(savedBid);
     }
 
     @Override
-    public List<ShipmentBidDTO>
-    getBidsByShipment(Long shipmentId) {
+    public List<ShipmentBidResponseDTO>
+    getShipmentBids(Long shipmentId) {
 
-        List<ShipmentBid> bids =
-                shipmentBidRepository
-                        .findByShipmentId(
-                                shipmentId
-                        );
-
-        return bids.stream()
-                .map(bid -> {
-
-                    Shipment shipment =
-                            shipmentRepository
-                                    .findById(
-                                            bid.getShipmentId()
-                                    )
-                                    .orElseThrow();
-
-                    Transporter transporter =
-                            transporterRepository
-                                    .findById(
-                                            bid.getTransporterId()
-                                    )
-                                    .orElseThrow();
-
-                    return mapToDTO(
-                            bid,
-                            shipment,
-                            transporter
-                    );
-                })
+        return shipmentBidRepository
+                .findByShipmentId(shipmentId)
+                .stream()
+                .map(this::mapToResponse)
                 .toList();
     }
 
     @Override
-    public ShipmentBidDTO acceptBid(
-            Long bidId
-    ) {
+    public String acceptBid(Long bidId) {
 
-        ShipmentBid acceptedBid =
-                shipmentBidRepository
-                        .findById(bidId)
+        ShipmentBid selectedBid =
+                shipmentBidRepository.findById(bidId)
                         .orElseThrow(() ->
                                 new RuntimeException(
-                                        "Bid not found"
-                                )
-                        );
+                                        "Bid not found"));
 
-        // ACCEPT SELECTED BID
-        acceptedBid.setStatus(
-                ShipmentBidStatus.ACCEPTED
-        );
+        Shipment shipment =
+                selectedBid.getShipment();
 
-        shipmentBidRepository.save(
-                acceptedBid
-        );
-
-        // GET ALL BIDS OF SAME SHIPMENT
-        List<ShipmentBid> shipmentBids =
+        List<ShipmentBid> allBids =
                 shipmentBidRepository
                         .findByShipmentId(
-                                acceptedBid.getShipmentId()
-                        );
+                                shipment.getId());
 
-        // REJECT OTHER BIDS
-        for (ShipmentBid bid : shipmentBids) {
+        for (ShipmentBid bid : allBids) {
 
-            if (!bid.getId().equals(
-                    acceptedBid.getId()
-            )) {
+            bid.setBidStatus(ShipmentBidStatus.PENDING);
 
-                bid.setStatus(
-                        ShipmentBidStatus.REJECTED
-                );
-
-                shipmentBidRepository.save(
-                        bid
-                );
-            }
+            shipmentBidRepository.save(bid);
         }
 
-        // UPDATE SHIPMENT STATUS
-        Shipment shipment =
-                shipmentRepository
-                        .findById(
-                                acceptedBid.getShipmentId()
-                        )
-                        .orElseThrow();
+        selectedBid.setBidStatus(
+                ShipmentBidStatus.ACCEPTED);
+
+        shipmentBidRepository.save(selectedBid);
 
         shipment.setStatus(
-                ShipmentStatus.BID_FINALIZED
-        );
+                ShipmentStatus.BID_FINALIZED);
 
-        shipmentRepository.save(
-                shipment
-        );
+        shipmentRepository.save(shipment);
 
-        Transporter transporter =
-                transporterRepository
-                        .findById(
-                                acceptedBid.getTransporterId()
-                        )
-                        .orElseThrow();
-
-        return mapToDTO(
-                acceptedBid,
-                shipment,
-                transporter
-        );
+        return "Bid accepted successfully";
     }
 
-    private ShipmentBidDTO mapToDTO(
+    private ShipmentBidResponseDTO
+    mapToResponse(ShipmentBid bid) {
 
-            ShipmentBid bid,
+        return ShipmentBidResponseDTO.builder()
+                .bidId(bid.getId())
+                .shipmentId(
+                        bid.getShipment().getId())
+                .transporterId(
+                        bid.getTransporter().getId())
+                .transporterName(
+                        bid.getTransporter()
+                                .getCompanyName())
+                .bidAmount(
+                        bid.getBidAmount())
+                .vehicleCount(
+                        bid.getVehicleCount())
+                .remarks(
+                        bid.getRemarks())
 
-            Shipment shipment,
-
-            Transporter transporter
-    ) {
-
-        ShipmentBidDTO dto =
-                new ShipmentBidDTO();
-
-        dto.setId(
-                bid.getId()
-        );
-
-        dto.setShipmentId(
-                shipment.getId()
-        );
-
-        dto.setShipmentNo(
-                shipment.getShipmentNo()
-        );
-
-        dto.setTransporterId(
-                transporter.getId()
-        );
-
-        dto.setTransporterName(
-                transporter.getCompanyName()
-        );
-
-        dto.setBidAmount(
-                bid.getBidAmount()
-        );
-
-        dto.setRemarks(
-                bid.getRemarks()
-        );
-
-        dto.setStatus(
-                bid.getStatus().name()
-        );
-
-        dto.setCreatedAt(
-                bid.getCreatedAt()
-        );
-
-        return dto;
+                .build();
     }
 }

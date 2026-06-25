@@ -1,6 +1,6 @@
 package com.tms.transportationManagementSystem.entity;
 
-import enums.ShipmentStatus;
+import com.tms.transportationManagementSystem.enums.ShipmentStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,8 +39,9 @@ public class Shipment {
             cascade = CascadeType.ALL)
     private List<ShipmentStop> shipmentStops;
 
-    // NEW
-    @ManyToOne
-    @JoinColumn(name = "vehicle_id")
-    private Vehicle vehicle;
+
+//    // NEW
+//    @ManyToOne
+//    @JoinColumn(name = "vehicle_id")
+//    private Vehicle vehicle;
 }

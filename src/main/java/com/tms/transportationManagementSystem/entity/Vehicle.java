@@ -18,7 +18,7 @@ public class Vehicle {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(name = "vehicle_number")
     private String vehicleNumber;
 
     private String vehicleType;
@@ -27,7 +27,11 @@ public class Vehicle {
     private Double maxVolumeCapacity;
     private String gpsDeviceId;
     private String status;
+    @Column(name = "weight_unit")
+    private String weightUnit;
 
+    @Column(name = "volume_unit")
+    private String volumeUnit;
     @ManyToOne
     @JoinColumn(name = "transporter_id")
     private Transporter transporter;

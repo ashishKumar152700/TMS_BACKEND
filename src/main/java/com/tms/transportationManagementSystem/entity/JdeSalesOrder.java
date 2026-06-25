@@ -1,5 +1,6 @@
 package com.tms.transportationManagementSystem.entity;
 
+import com.tms.transportationManagementSystem.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -46,6 +47,10 @@ public class JdeSalesOrder {
     @Column(precision = 15, scale = 3)
     private BigDecimal totalWeight;
 
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_status")
+    private OrderStatus orderStatus = OrderStatus.NEW;
     private String weightUnit;
 
     @Column(precision = 15, scale = 3)

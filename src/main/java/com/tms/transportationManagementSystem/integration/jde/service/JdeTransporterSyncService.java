@@ -91,6 +91,8 @@ public class JdeTransporterSyncService {
                         vehicle.setVehicleNumber(clean(vehicleDto.getVehicleNumber()));
                         vehicle.setVehicleType(clean(vehicleDto.getVehicleType()));
                         vehicle.setMaxWeightCapacity(vehicleDto.getMaxWeightCapacity());
+                        vehicle.setWeightUnit(clean(vehicleDto.getTotalWeight()));
+                        vehicle.setVolumeUnit(clean(vehicleDto.getTotalVolume()));
                         vehicle.setMaxVolumeCapacity(vehicleDto.getMaxVolumeCapacity());
                         vehicle.setGpsDeviceId(clean(vehicleDto.getGpsDeviceId()));
                         vehicle.setStatus(clean(vehicleDto.getStatus()));

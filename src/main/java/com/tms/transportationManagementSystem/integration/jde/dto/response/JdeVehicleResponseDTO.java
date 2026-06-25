@@ -10,6 +10,8 @@ public class JdeVehicleResponseDTO {
     private String vehicleNumber;
     private String vehicleType;
     private Double maxWeightCapacity;
+    private String totalWeight;
+    private String totalVolume;
     private Double maxVolumeCapacity;
     private String gpsDeviceId;
     private String status;
