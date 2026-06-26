@@ -7,13 +7,14 @@ import java.util.List;
 
 public interface ShipmentBidService {
 
-    String openBidding(Long shipmentId);
-
     ShipmentBidResponseDTO placeBid(
-            ShipmentBidRequestDTO request);
+            ShipmentBidRequestDTO request,
+            Long transporterId);
 
-    List<ShipmentBidResponseDTO>
-    getShipmentBids(Long shipmentId);
+    List<ShipmentBidResponseDTO> getShipmentBids(Long shipmentId);
 
-    String acceptBid(Long bidId);
+    List<ShipmentBidResponseDTO> getMyBids(Long transporterId);
+
+    ShipmentBidResponseDTO acceptBid(Long bidId);
+
 }

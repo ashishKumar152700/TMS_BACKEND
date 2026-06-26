@@ -35,13 +35,25 @@ public class Shipment {
     @Enumerated(EnumType.STRING)
     private ShipmentStatus status;
 
-    @OneToMany(mappedBy = "shipment",
-            cascade = CascadeType.ALL)
+    @OneToMany(
+            mappedBy = "shipment",
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY
+    )
+    private List<JdeSalesOrder> orders;
+
+    @OneToMany(
+            mappedBy = "shipment",
+            cascade = CascadeType.ALL
+    )
     private List<ShipmentStop> shipmentStops;
 
+    @Column(name = "expected_price")
+    private Double expectedPrice;
 
-//    // NEW
-//    @ManyToOne
-//    @JoinColumn(name = "vehicle_id")
-//    private Vehicle vehicle;
+    @Column(name = "planned_pickup_date")
+    private LocalDate plannedPickupDate;
+
+    @Column(name = "bid_message", length = 500)
+    private String bidMessage;
 }

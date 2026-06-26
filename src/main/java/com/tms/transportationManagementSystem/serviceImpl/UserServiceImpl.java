@@ -37,7 +37,6 @@ public class UserServiceImpl implements UserService {
         User user = new User();
 
         user.setName(request.getName());
-
         user.setEmail(request.getEmail());
 
         user.setPassword(
@@ -45,6 +44,20 @@ public class UserServiceImpl implements UserService {
         );
 
         user.setRoles(roles);
+
+        // 🔥 NEW LOGIC (TRANSPORTER ONLY)
+        boolean isTransporter = roles.stream()
+                .anyMatch(r -> r.getRoleName().equalsIgnoreCase("TRANSPORTER"));
+
+        if (isTransporter) {
+
+            if (request.getJdeAddressNumber() == null) {
+                throw new RuntimeException("JDE Address Number required for transporter");
+            }
+
+            user.setJdeAddressNumber(request.getJdeAddressNumber());
+            user.setTransporterName(request.getTransporterName());
+        }
 
         User savedUser = userRepository.save(user);
 
@@ -82,7 +95,6 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.toSet());
 
         user.setName(request.getName());
-
         user.setEmail(request.getEmail());
 
         user.setPassword(
@@ -90,6 +102,24 @@ public class UserServiceImpl implements UserService {
         );
 
         user.setRoles(roles);
+
+        boolean isTransporter = roles.stream()
+                .anyMatch(r -> r.getRoleName().equalsIgnoreCase("TRANSPORTER"));
+
+        if (isTransporter) {
+
+            if (request.getJdeAddressNumber() == null) {
+                throw new RuntimeException("JDE Address Number required for transporter");
+            }
+
+            user.setJdeAddressNumber(request.getJdeAddressNumber());
+            user.setTransporterName(request.getTransporterName());
+
+        } else {
+
+            user.setJdeAddressNumber(null);
+            user.setTransporterName(null);
+        }
 
         User updatedUser = userRepository.save(user);
 

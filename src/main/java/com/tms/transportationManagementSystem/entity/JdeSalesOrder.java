@@ -64,4 +64,8 @@ public class JdeSalesOrder {
             fetch = FetchType.LAZY
     )
     private List<JdeSalesOrderLine> lines;
+
+    @ManyToOne
+    @JoinColumn(name = "shipment_id")
+    private Shipment shipment;
 }

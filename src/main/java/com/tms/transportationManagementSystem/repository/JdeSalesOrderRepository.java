@@ -14,4 +14,7 @@ public interface JdeSalesOrderRepository
     Optional<JdeSalesOrder> findByOrderNumber(String orderNumber);
 
     List<JdeSalesOrder> findByCustomerNumber(String customerNumber);
+
+    long countByShipmentId(Long shipmentId);
+
 }

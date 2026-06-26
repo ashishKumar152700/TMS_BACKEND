@@ -1,10 +1,14 @@
 package com.tms.transportationManagementSystem.controller;
 
+import com.tms.transportationManagementSystem.dto.RequestDTO.OpenBidRequestDTO;
 import com.tms.transportationManagementSystem.dto.RequestDTO.ShipmentCreateRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentResponseDTO;
 import com.tms.transportationManagementSystem.service.ShipmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/shipments")
@@ -17,15 +21,30 @@ public class ShipmentController {
     public ShipmentResponseDTO createShipment(
             @RequestBody ShipmentCreateRequestDTO request) {
 
-        System.out.println("========== SHIPMENT REQUEST ==========");
-        System.out.println(request);
-        System.out.println("OrderIds              : " + request.getOrderIds());
-        System.out.println("RouteId               : " + request.getRouteId());
-        System.out.println("VehicleId             : " + request.getVehicleId());
-        System.out.println("SelectedVehicleType   : " + request.getSelectedVehicleType());
-        System.out.println("SelectedVehicleCount  : " + request.getSelectedVehicleCount());
-        System.out.println("======================================");
-
         return shipmentService.createShipment(request);
     }
+
+    @GetMapping
+    public List<ShipmentResponseDTO> getAllShipments() {
+        return shipmentService.getAllShipments();
+    }
+    @PutMapping("/{shipmentId}/open-bid")
+    public ResponseEntity<ShipmentResponseDTO> openBid(
+            @PathVariable Long shipmentId,
+            @RequestBody OpenBidRequestDTO request){
+
+        return ResponseEntity.ok(
+                shipmentService.openBid(
+                        shipmentId,
+                        request));
+    }
+
+    @GetMapping("/open-bids")
+    public List<ShipmentResponseDTO> getOpenBids(
+            @RequestHeader("Authorization") String token) {
+
+        return shipmentService.getOpenBids(token);
+    }
+
+
 }

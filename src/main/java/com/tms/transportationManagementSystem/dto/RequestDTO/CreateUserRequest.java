@@ -14,4 +14,8 @@ public class CreateUserRequest {
     private String password;
 
     private Set<Long> roleIds;
+
+    private Long jdeAddressNumber;
+
+    private String transporterName;
 }

@@ -1,23 +1,24 @@
 package com.tms.transportationManagementSystem.dto.ResponseDTO;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+
+import java.time.LocalDate;
 
 @Getter
 @Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ShipmentBidResponseDTO {
 
     private Long bidId;
     private Long shipmentId;
-
     private Long transporterId;
     private String transporterName;
-
     private Double bidAmount;
-    private Integer vehicleCount;
-
+    private Integer deliveryDays;
+    private LocalDate plannedPickupDate;
     private String remarks;
-    private Boolean accepted;
+
+    private String bidStatus;
 }

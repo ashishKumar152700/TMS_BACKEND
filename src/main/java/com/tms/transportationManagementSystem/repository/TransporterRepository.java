@@ -33,4 +33,6 @@ public interface TransporterRepository extends JpaRepository<Transporter, Long> 
            where t.id = :id
            """)
     Optional<Transporter> findByIdWithVehicles(Long id);
+
+
 }

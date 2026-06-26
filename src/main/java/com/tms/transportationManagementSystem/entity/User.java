@@ -25,6 +25,10 @@ public class User {
 
     private String password;
 
+    private Long jdeAddressNumber;
+
+    private String transporterName;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",

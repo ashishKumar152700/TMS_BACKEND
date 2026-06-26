@@ -9,4 +9,11 @@ public interface ShipmentBidRepository
         extends JpaRepository<ShipmentBid, Long> {
 
     List<ShipmentBid> findByShipmentId(Long shipmentId);
+
+    List<ShipmentBid> findByTransporterId(Long transporterId);
+
+    boolean existsByShipmentIdAndTransporterId(Long shipmentId,
+                                               Long transporterId);
+
+
 }

@@ -9,42 +9,43 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/bids")
+@RequestMapping("/api/shipment-bids")
 @RequiredArgsConstructor
 public class ShipmentBidController {
 
     private final ShipmentBidService shipmentBidService;
 
-    @PostMapping("/open/{shipmentId}")
-    public String openBidding(
-            @PathVariable Long shipmentId) {
-
-        return shipmentBidService
-                .openBidding(shipmentId);
-    }
-
-    @PostMapping("/place")
+    // Transporter Place Bid
+    @PostMapping
     public ShipmentBidResponseDTO placeBid(
-            @RequestBody ShipmentBidRequestDTO request) {
+            @RequestBody ShipmentBidRequestDTO request,
+            @RequestParam Long transporterId) {
 
-        return shipmentBidService
-                .placeBid(request);
+        return shipmentBidService.placeBid(request, transporterId);
     }
 
+    // Transporter My Bids
+    @GetMapping("/my/{transporterId}")
+    public List<ShipmentBidResponseDTO> getMyBids(
+            @PathVariable Long transporterId) {
+
+        return shipmentBidService.getMyBids(transporterId);
+    }
+
+    // Admin - All bids of shipment
     @GetMapping("/shipment/{shipmentId}")
-    public List<ShipmentBidResponseDTO>
-    getShipmentBids(
+    public List<ShipmentBidResponseDTO> getShipmentBids(
             @PathVariable Long shipmentId) {
 
-        return shipmentBidService
-                .getShipmentBids(shipmentId);
+        return shipmentBidService.getShipmentBids(shipmentId);
     }
 
-    @PostMapping("/accept/{bidId}")
-    public String acceptBid(
+    // Admin Accept Bid
+    @PutMapping("/{bidId}/accept")
+    public ShipmentBidResponseDTO acceptBid(
             @PathVariable Long bidId) {
 
-        return shipmentBidService
-                .acceptBid(bidId);
+        return shipmentBidService.acceptBid(bidId);
     }
+
 }

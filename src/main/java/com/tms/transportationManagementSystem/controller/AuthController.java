@@ -6,8 +6,12 @@ import com.tms.transportationManagementSystem.dto.ResponseDTO.LoginResponse;
 import com.tms.transportationManagementSystem.entity.User;
 import com.tms.transportationManagementSystem.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import com.tms.transportationManagementSystem.entity.Role;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/auth")
@@ -21,9 +25,7 @@ public class AuthController {
     private final JwtUtil jwtUtil;
 
     @PostMapping("/login")
-    public LoginResponse login(
-            @RequestBody LoginRequest request
-    ) {
+    public LoginResponse login(@RequestBody LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid Email"));
@@ -34,12 +36,22 @@ public class AuthController {
         );
 
         if (!isMatch) {
-
             throw new RuntimeException("Invalid Password");
         }
 
         String token = jwtUtil.generateToken(user.getEmail());
 
-        return new LoginResponse(token);
+        Set<String> roleNames = user.getRoles()
+                .stream()
+                .map(Role::getRoleName)
+                .collect(Collectors.toSet());
+
+        return LoginResponse.builder()
+                .token(token)
+                .userId(user.getId())
+                .email(user.getEmail())
+                .name(user.getName())
+                .roles(roleNames)
+                .build();
     }
 }
