@@ -1,9 +1,12 @@
 package com.tms.transportationManagementSystem.controller;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.ShipmentBidRequestDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.AppliedBidResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidManagementResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidResponseDTO;
 import com.tms.transportationManagementSystem.service.ShipmentBidService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,6 +49,25 @@ public class ShipmentBidController {
             @PathVariable Long bidId) {
 
         return shipmentBidService.acceptBid(bidId);
+    }
+    @GetMapping("/my-bids")
+    public ResponseEntity<List<AppliedBidResponseDTO>> getMyAppliedBids() {
+
+        return ResponseEntity.ok(
+                shipmentBidService.getMyAppliedBids());
+    }
+
+    @GetMapping("/admin/all")
+    public List<ShipmentBidManagementResponseDTO> getAllShipmentBidsForAdmin() {
+
+        return shipmentBidService.getAllShipmentBidsForAdmin();
+    }
+
+    @PutMapping("/{bidId}/reject")
+    public ShipmentBidResponseDTO rejectBid(
+            @PathVariable Long bidId) {
+
+        return shipmentBidService.rejectBid(bidId);
     }
 
 }

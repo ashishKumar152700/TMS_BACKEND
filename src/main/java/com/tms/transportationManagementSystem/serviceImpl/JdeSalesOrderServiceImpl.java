@@ -754,6 +754,9 @@ public class JdeSalesOrderServiceImpl implements JdeSalesOrderService {
         dto.setVolumeUnit(
                 order.getVolumeUnit()
         );
+        dto.setOrderStatus(
+                order.getOrderStatus()
+        );
 
         List<JdeSalesOrderLineDTO> lineDtos =
                 lineRepository.findBySalesOrder(order)

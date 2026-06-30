@@ -1,6 +1,8 @@
 package com.tms.transportationManagementSystem.service;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.ShipmentBidRequestDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.AppliedBidResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidManagementResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidResponseDTO;
 
 import java.util.List;
@@ -17,4 +19,9 @@ public interface ShipmentBidService {
 
     ShipmentBidResponseDTO acceptBid(Long bidId);
 
+    List<AppliedBidResponseDTO> getMyAppliedBids();
+
+    ShipmentBidResponseDTO rejectBid(Long bidId);
+
+    List<ShipmentBidManagementResponseDTO> getAllShipmentBidsForAdmin();
 }

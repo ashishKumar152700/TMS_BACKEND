@@ -15,5 +15,7 @@ public interface ShipmentBidRepository
     boolean existsByShipmentIdAndTransporterId(Long shipmentId,
                                                Long transporterId);
 
+    List<ShipmentBid> findByTransporterIdOrderByBidDateDesc(Long transporterId);
 
+    List<ShipmentBid> findByShipmentIdOrderByBidAmountAsc(Long shipmentId);
 }

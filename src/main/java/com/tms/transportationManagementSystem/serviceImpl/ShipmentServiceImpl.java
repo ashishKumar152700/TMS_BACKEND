@@ -2,6 +2,7 @@ package com.tms.transportationManagementSystem.serviceImpl;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.OpenBidRequestDTO;
 import com.tms.transportationManagementSystem.dto.RequestDTO.ShipmentCreateRequestDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.AppliedBidResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentOrderResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentResponseDTO;
 import com.tms.transportationManagementSystem.entity.*;
@@ -113,6 +114,27 @@ public class ShipmentServiceImpl implements ShipmentService {
                                     transporterId
                             );
 
+                    List<ShipmentOrder> shipmentOrders =
+                            shipmentOrderRepository.findByShipmentId(shipment.getId());
+
+                    List<ShipmentOrderResponseDTO> orderDTOs =
+                            shipmentOrders.stream()
+                                    .map(so -> orderRepository.findById(so.getOrderId()).orElse(null))
+                                    .filter(Objects::nonNull)
+                                    .map(order -> ShipmentOrderResponseDTO.builder()
+                                            .orderId(order.getId())
+                                            .orderNumber(order.getOrderNumber())
+                                            .customerNumber(order.getCustomerNumber())
+                                            .customerName(order.getShipToCustomerName())
+                                            .city(order.getShipToCity())
+                                            .state(order.getShipToState())
+                                            .totalWeight(order.getTotalWeight())
+                                            .totalVolume(order.getTotalVolume())
+                                            .orderDate(order.getOrderDate())
+                                            .orderStatus(order.getOrderStatus().name())
+                                            .build())
+                                    .toList();
+
                     return ShipmentResponseDTO.builder()
                             .shipmentId(shipment.getId())
                             .shipmentNo(shipment.getShipmentNo())
@@ -124,6 +146,10 @@ public class ShipmentServiceImpl implements ShipmentService {
                             .bidMessage(shipment.getBidMessage())
                             .status(shipment.getStatus().name())
                             .alreadyBidPlaced(alreadyBid)
+
+                            .orderCount(orderDTOs.size())
+                            .orders(orderDTOs)
+
                             .build();
                 })
                 .toList();
@@ -171,7 +197,6 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         }).toList();
     }
-
 
 
 

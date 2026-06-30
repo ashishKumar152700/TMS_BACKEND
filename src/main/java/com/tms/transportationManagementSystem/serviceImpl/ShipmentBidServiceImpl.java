@@ -1,7 +1,7 @@
 package com.tms.transportationManagementSystem.serviceImpl;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.ShipmentBidRequestDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentBidResponseDTO;
+import com.tms.transportationManagementSystem.dto.ResponseDTO.*;
 import com.tms.transportationManagementSystem.entity.*;
 import com.tms.transportationManagementSystem.enums.ShipmentBidStatus;
 import com.tms.transportationManagementSystem.enums.ShipmentStatus;
@@ -9,9 +9,11 @@ import com.tms.transportationManagementSystem.repository.*;
 import com.tms.transportationManagementSystem.service.ShipmentBidService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +24,166 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
     private final TransporterRepository transporterRepository;
     private final UserRepository userRepository;
     private final TransporterShipmentBidTrackerRepository trackerRepository;
+    private final ShipmentOrderRepository shipmentOrderRepository;
+    private final JdeSalesOrderRepository orderRepository;
+
+
+    @Override
+    public ShipmentBidResponseDTO rejectBid(Long bidId) {
+
+        ShipmentBid bid = shipmentBidRepository.findById(bidId)
+                .orElseThrow(() -> new RuntimeException("Bid not found"));
+
+        if (bid.getBidStatus() == ShipmentBidStatus.ACCEPTED) {
+            throw new RuntimeException("Accepted bid cannot be rejected.");
+        }
+
+        bid.setBidStatus(ShipmentBidStatus.REJECTED);
+
+        shipmentBidRepository.save(bid);
+
+        return map(bid);
+    }
+
+
+    @Override
+    public List<AppliedBidResponseDTO> getMyAppliedBids() {
+
+        User currentUser = (User) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        Long jdeAddressNumber = currentUser.getJdeAddressNumber();
+
+        Transporter transporter = transporterRepository
+                .findByAddressNumber(jdeAddressNumber)
+                .orElseThrow(() -> new RuntimeException("Transporter not found"));
+
+        List<ShipmentBid> bids = shipmentBidRepository
+                .findByTransporterIdOrderByBidDateDesc(transporter.getId());
+
+        return bids.stream()
+                .map(bid -> {
+
+                    Shipment shipment = bid.getShipment();
+
+                    List<ShipmentOrder> shipmentOrders =
+                            shipmentOrderRepository.findByShipmentId(shipment.getId());
+
+                    List<ShipmentOrderResponseDTO> orderList =
+                            shipmentOrders.stream()
+                                    .map(so -> orderRepository.findById(so.getOrderId()).orElse(null))
+                                    .filter(Objects::nonNull)
+                                    .map(order -> ShipmentOrderResponseDTO.builder()
+                                            .orderId(order.getId())
+                                            .orderNumber(order.getOrderNumber())
+                                            .customerNumber(order.getCustomerNumber())
+                                            .customerName(order.getShipToCustomerName())
+                                            .city(order.getShipToCity())
+                                            .state(order.getShipToState())
+                                            .totalWeight(order.getTotalWeight())
+                                            .totalVolume(order.getTotalVolume())
+                                            .orderDate(order.getOrderDate())
+                                            .orderStatus(order.getOrderStatus().name())
+                                            .build())
+                                    .toList();
+
+                    return AppliedBidResponseDTO.builder()
+                            .bidId(bid.getId())
+                            .shipmentId(shipment.getId())
+                            .shipmentNo(shipment.getShipmentNo())
+
+                            .bidAmount(bid.getBidAmount())
+                            .deliveryDays(bid.getDeliveryDays())
+                            .plannedPickupDate(bid.getPlannedPickupDate())
+                            .remarks(bid.getRemarks())
+                            .bidDate(bid.getBidDate())
+                            .bidStatus(
+                                    bid.getBidStatus() == ShipmentBidStatus.PENDING
+                                            ? "Waiting for Approval"
+                                            : bid.getBidStatus().name()
+                            )
+
+                            .expectedPrice(shipment.getExpectedPrice())
+                            .vehicleType(shipment.getSelectedVehicleType())
+                            .totalWeight(shipment.getTotalWeight())
+                            .totalVolume(shipment.getTotalVolume())
+                            .shipmentStatus(shipment.getStatus().name())
+
+                            .orders(orderList)
+
+                            .build();
+
+                })
+                .toList();
+    }
+
+    @Override
+    public List<ShipmentBidManagementResponseDTO> getAllShipmentBidsForAdmin() {
+
+        List<Shipment> shipments =
+                shipmentRepository.findByStatus(ShipmentStatus.BIDDING_OPEN);
+
+        return shipments.stream()
+                .map(shipment -> {
+
+                    // Orders
+                    List<ShipmentOrder> shipmentOrders =
+                            shipmentOrderRepository.findByShipmentId(shipment.getId());
+
+                    List<ShipmentOrderResponseDTO> orderDTOs =
+                            shipmentOrders.stream()
+                                    .map(so -> orderRepository.findById(so.getOrderId()).orElse(null))
+                                    .filter(Objects::nonNull)
+                                    .map(order -> ShipmentOrderResponseDTO.builder()
+                                            .orderId(order.getId())
+                                            .orderNumber(order.getOrderNumber())
+                                            .customerNumber(order.getCustomerNumber())
+                                            .customerName(order.getShipToCustomerName())
+                                            .city(order.getShipToCity())
+                                            .state(order.getShipToState())
+                                            .totalWeight(order.getTotalWeight())
+                                            .totalVolume(order.getTotalVolume())
+                                            .orderDate(order.getOrderDate())
+                                            .orderStatus(order.getOrderStatus().name())
+                                            .build())
+                                    .toList();
+
+                    // Bids
+                    List<ShipmentBidAdminResponseDTO> bidDTOs =
+                            shipmentBidRepository
+                                    .findByShipmentIdOrderByBidAmountAsc(shipment.getId())
+                                    .stream()
+                                    .map(bid -> ShipmentBidAdminResponseDTO.builder()
+                                            .bidId(bid.getId())
+                                            .transporterId(bid.getTransporter().getId())
+                                            .transporterName(bid.getTransporter().getCompanyName())
+                                            .bidAmount(bid.getBidAmount())
+                                            .deliveryDays(bid.getDeliveryDays())
+                                            .plannedPickupDate(bid.getPlannedPickupDate())
+                                            .remarks(bid.getRemarks())
+                                            .bidDate(bid.getBidDate())
+                                            .bidStatus(bid.getBidStatus().name())
+                                            .build())
+                                    .toList();
+
+                    return ShipmentBidManagementResponseDTO.builder()
+                            .shipmentId(shipment.getId())
+                            .shipmentNo(shipment.getShipmentNo())
+                            .vehicleType(shipment.getSelectedVehicleType())
+                            .totalWeight(shipment.getTotalWeight())
+                            .totalVolume(shipment.getTotalVolume())
+                            .expectedPrice(shipment.getExpectedPrice())
+                            .plannedPickupDate(shipment.getPlannedPickupDate())
+                            .shipmentStatus(shipment.getStatus().name())
+                            .orders(orderDTOs)
+                            .bids(bidDTOs)
+                            .build();
+
+                })
+                .toList();
+    }
 
     @Override
     public ShipmentBidResponseDTO placeBid(
@@ -107,6 +269,15 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
         ShipmentBid acceptedBid = shipmentBidRepository.findById(bidId)
                 .orElseThrow(() -> new RuntimeException("Bid not found"));
 
+        // Validation
+        if (acceptedBid.getBidStatus() == ShipmentBidStatus.ACCEPTED) {
+            throw new RuntimeException("Bid already accepted.");
+        }
+
+        if (acceptedBid.getBidStatus() == ShipmentBidStatus.REJECTED) {
+            throw new RuntimeException("Rejected bid cannot be accepted.");
+        }
+
         Shipment shipment = acceptedBid.getShipment();
 
         acceptedBid.setBidStatus(ShipmentBidStatus.ACCEPTED);
@@ -118,10 +289,9 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
 
             if (!bid.getId().equals(acceptedBid.getId())) {
 
+                // Accepted bid ko chhodkar sab reject
                 bid.setBidStatus(ShipmentBidStatus.REJECTED);
-
             }
-
         }
 
         shipmentBidRepository.saveAll(allBids);

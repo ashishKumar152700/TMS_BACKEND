@@ -1,6 +1,7 @@
 package com.tms.transportationManagementSystem.dto.ResponseDTO;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.tms.transportationManagementSystem.enums.OrderStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -22,7 +23,7 @@ public class JdeSalesOrderResponseDTO {
     private String branchPlant;
     private String status;
     private String currencyCode;
-
+    private OrderStatus orderStatus;
     private Long shipToCustomerNumber;
     private String shipToCustomerName;
     private String shipToAddress1;
