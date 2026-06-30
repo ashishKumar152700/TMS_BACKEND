@@ -48,6 +48,10 @@ public class Shipment {
     )
     private List<ShipmentStop> shipmentStops;
 
+    @ManyToOne
+    @JoinColumn(name = "vehicle_id")
+    private Vehicle vehicle;
+
     @Column(name = "expected_price")
     private Double expectedPrice;
 

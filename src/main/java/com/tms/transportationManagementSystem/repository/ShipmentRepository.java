@@ -10,11 +10,10 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface ShipmentRepository
-        extends JpaRepository<Shipment, Long> {
+public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 
     List<Shipment> findByStatus(ShipmentStatus status);
 
-
+    List<Shipment> findByStatusIn(List<ShipmentStatus> statuses);
 
 }

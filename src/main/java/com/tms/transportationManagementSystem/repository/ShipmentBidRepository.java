@@ -1,12 +1,12 @@
 package com.tms.transportationManagementSystem.repository;
 
 import com.tms.transportationManagementSystem.entity.ShipmentBid;
+import com.tms.transportationManagementSystem.enums.ShipmentBidStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface ShipmentBidRepository
-        extends JpaRepository<ShipmentBid, Long> {
+public interface ShipmentBidRepository extends JpaRepository<ShipmentBid, Long> {
 
     List<ShipmentBid> findByShipmentId(Long shipmentId);
 
@@ -18,4 +18,9 @@ public interface ShipmentBidRepository
     List<ShipmentBid> findByTransporterIdOrderByBidDateDesc(Long transporterId);
 
     List<ShipmentBid> findByShipmentIdOrderByBidAmountAsc(Long shipmentId);
+
+    List<ShipmentBid> findByShipmentIdAndBidStatusOrderByBidAmountAsc(
+            Long shipmentId,
+            ShipmentBidStatus bidStatus
+    );
 }

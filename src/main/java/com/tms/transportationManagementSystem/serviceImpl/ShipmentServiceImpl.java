@@ -88,13 +88,16 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Override
     public List<ShipmentResponseDTO> getOpenBids(String token) {
 
-//        String email = jwtService.extractUsername(token);
-        User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User currentUser = (User) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
 
-        currentUser.getJdeAddressNumber();
-        String email=currentUser.getEmail();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        System.out.println("\n================ OPEN BIDS API ================");
+        System.out.println("User Id           : " + currentUser.getId());
+        System.out.println("User Name         : " + currentUser.getName());
+        System.out.println("Email             : " + currentUser.getEmail());
+        System.out.println("JDE Address No    : " + currentUser.getJdeAddressNumber());
 
         Long jdeAddressNumber = currentUser.getJdeAddressNumber();
 
@@ -103,6 +106,9 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .orElseThrow(() -> new RuntimeException("Transporter not found"));
 
         Long transporterId = transporter.getId();
+
+        System.out.println("Transporter Id    : " + transporterId);
+        System.out.println("===============================================\n");
 
         return shipmentRepository.findByStatus(ShipmentStatus.BIDDING_OPEN)
                 .stream()
@@ -113,6 +119,13 @@ public class ShipmentServiceImpl implements ShipmentService {
                                     shipment.getId(),
                                     transporterId
                             );
+
+                    System.out.println(
+                            "ShipmentId = " + shipment.getId()
+                                    + " | ShipmentNo = " + shipment.getShipmentNo()
+                                    + " | TransporterId = " + transporterId
+                                    + " | AlreadyBidPlaced = " + alreadyBid
+                    );
 
                     List<ShipmentOrder> shipmentOrders =
                             shipmentOrderRepository.findByShipmentId(shipment.getId());
@@ -146,10 +159,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                             .bidMessage(shipment.getBidMessage())
                             .status(shipment.getStatus().name())
                             .alreadyBidPlaced(alreadyBid)
-
                             .orderCount(orderDTOs.size())
                             .orders(orderDTOs)
-
                             .build();
                 })
                 .toList();

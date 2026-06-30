@@ -122,8 +122,12 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
     @Override
     public List<ShipmentBidManagementResponseDTO> getAllShipmentBidsForAdmin() {
 
-        List<Shipment> shipments =
-                shipmentRepository.findByStatus(ShipmentStatus.BIDDING_OPEN);
+        List<Shipment> shipments = shipmentRepository.findByStatusIn(
+                List.of(
+                        ShipmentStatus.BIDDING_OPEN,
+                        ShipmentStatus.BID_FINALIZED
+                )
+        );
 
         return shipments.stream()
                 .map(shipment -> {
@@ -151,10 +155,23 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
                                     .toList();
 
                     // Bids
+                    List<ShipmentBid> bids;
+
+                    if (shipment.getStatus() == ShipmentStatus.BID_FINALIZED) {
+                        // Sirf accepted bid dikhao
+                        bids = shipmentBidRepository
+                                .findByShipmentIdAndBidStatusOrderByBidAmountAsc(
+                                        shipment.getId(),
+                                        ShipmentBidStatus.ACCEPTED
+                                );
+                    } else {
+                        // Bidding open hai to sab bids dikhao
+                        bids = shipmentBidRepository
+                                .findByShipmentIdOrderByBidAmountAsc(shipment.getId());
+                    }
+
                     List<ShipmentBidAdminResponseDTO> bidDTOs =
-                            shipmentBidRepository
-                                    .findByShipmentIdOrderByBidAmountAsc(shipment.getId())
-                                    .stream()
+                            bids.stream()
                                     .map(bid -> ShipmentBidAdminResponseDTO.builder()
                                             .bidId(bid.getId())
                                             .transporterId(bid.getTransporter().getId())
@@ -184,6 +201,72 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
                 })
                 .toList();
     }
+
+//    @Override
+//    public List<ShipmentBidManagementResponseDTO> getAllShipmentBidsForAdmin() {
+//
+//        List<Shipment> shipments =
+//                shipmentRepository.findByStatus(ShipmentStatus.BIDDING_OPEN);
+//
+//        return shipments.stream()
+//                .map(shipment -> {
+//
+//                    // Orders
+//                    List<ShipmentOrder> shipmentOrders =
+//                            shipmentOrderRepository.findByShipmentId(shipment.getId());
+//
+//                    List<ShipmentOrderResponseDTO> orderDTOs =
+//                            shipmentOrders.stream()
+//                                    .map(so -> orderRepository.findById(so.getOrderId()).orElse(null))
+//                                    .filter(Objects::nonNull)
+//                                    .map(order -> ShipmentOrderResponseDTO.builder()
+//                                            .orderId(order.getId())
+//                                            .orderNumber(order.getOrderNumber())
+//                                            .customerNumber(order.getCustomerNumber())
+//                                            .customerName(order.getShipToCustomerName())
+//                                            .city(order.getShipToCity())
+//                                            .state(order.getShipToState())
+//                                            .totalWeight(order.getTotalWeight())
+//                                            .totalVolume(order.getTotalVolume())
+//                                            .orderDate(order.getOrderDate())
+//                                            .orderStatus(order.getOrderStatus().name())
+//                                            .build())
+//                                    .toList();
+//
+//                    // Bids
+//                    List<ShipmentBidAdminResponseDTO> bidDTOs =
+//                            shipmentBidRepository
+//                                    .findByShipmentIdOrderByBidAmountAsc(shipment.getId())
+//                                    .stream()
+//                                    .map(bid -> ShipmentBidAdminResponseDTO.builder()
+//                                            .bidId(bid.getId())
+//                                            .transporterId(bid.getTransporter().getId())
+//                                            .transporterName(bid.getTransporter().getCompanyName())
+//                                            .bidAmount(bid.getBidAmount())
+//                                            .deliveryDays(bid.getDeliveryDays())
+//                                            .plannedPickupDate(bid.getPlannedPickupDate())
+//                                            .remarks(bid.getRemarks())
+//                                            .bidDate(bid.getBidDate())
+//                                            .bidStatus(bid.getBidStatus().name())
+//                                            .build())
+//                                    .toList();
+//
+//                    return ShipmentBidManagementResponseDTO.builder()
+//                            .shipmentId(shipment.getId())
+//                            .shipmentNo(shipment.getShipmentNo())
+//                            .vehicleType(shipment.getSelectedVehicleType())
+//                            .totalWeight(shipment.getTotalWeight())
+//                            .totalVolume(shipment.getTotalVolume())
+//                            .expectedPrice(shipment.getExpectedPrice())
+//                            .plannedPickupDate(shipment.getPlannedPickupDate())
+//                            .shipmentStatus(shipment.getStatus().name())
+//                            .orders(orderDTOs)
+//                            .bids(bidDTOs)
+//                            .build();
+//
+//                })
+//                .toList();
+//    }
 
     @Override
     public ShipmentBidResponseDTO placeBid(
