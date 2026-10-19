@@ -7,5 +7,12 @@ import lombok.Setter;
 @Setter
 public class VehicleAssignmentRequestDTO {
 
+    private Long shipmentId;
+
     private Long vehicleId;
+
+    private String driverName;
+
+    private String driverMobile;
+
 }

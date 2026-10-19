@@ -89,6 +89,25 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
                                             .build())
                                     .toList();
 
+                    // Bid Status Display
+                    String bidStatus;
+                    switch (bid.getBidStatus()) {
+                        case PENDING:
+                            bidStatus = "Waiting for Approval";
+                            break;
+
+                        case ACCEPTED:
+                            bidStatus = "Accepted";
+                            break;
+
+                        case REJECTED:
+                            bidStatus = "Rejected";
+                            break;
+
+                        default:
+                            bidStatus = bid.getBidStatus().name();
+                    }
+
                     return AppliedBidResponseDTO.builder()
                             .bidId(bid.getId())
                             .shipmentId(shipment.getId())
@@ -99,11 +118,7 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
                             .plannedPickupDate(bid.getPlannedPickupDate())
                             .remarks(bid.getRemarks())
                             .bidDate(bid.getBidDate())
-                            .bidStatus(
-                                    bid.getBidStatus() == ShipmentBidStatus.PENDING
-                                            ? "Waiting for Approval"
-                                            : bid.getBidStatus().name()
-                            )
+                            .bidStatus(bidStatus)
 
                             .expectedPrice(shipment.getExpectedPrice())
                             .vehicleType(shipment.getSelectedVehicleType())

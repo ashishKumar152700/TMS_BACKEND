@@ -26,4 +26,5 @@ public class TripResponseDTO {
     private String status;
 
     private LocalDateTime startTime;
+
 }

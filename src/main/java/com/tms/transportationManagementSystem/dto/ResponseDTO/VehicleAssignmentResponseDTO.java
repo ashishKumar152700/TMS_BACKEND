@@ -3,23 +3,26 @@ package com.tms.transportationManagementSystem.dto.ResponseDTO;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 public class VehicleAssignmentResponseDTO {
 
-    private Long assignmentId;
+    private Long tripId;
+
+    private String tripNo;
 
     private Long shipmentId;
-
-    private String shipmentNo;
 
     private Long vehicleId;
 
     private String vehicleNumber;
 
-    private String shipmentStatus;
+    private String driverName;
 
-    private LocalDateTime assignedAt;
+    private String driverMobile;
+
+    private String status;
+
+    private String message;
+
 }

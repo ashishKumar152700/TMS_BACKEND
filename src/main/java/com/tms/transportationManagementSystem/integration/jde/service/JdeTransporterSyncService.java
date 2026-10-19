@@ -80,29 +80,29 @@ public class JdeTransporterSyncService {
 
                 transporter = transporterRepository.save(transporter);
 
-                // Delete old vehicles
-                vehicleRepository.deleteByTransporterId(transporter.getId());
 
-                // Save new vehicles only if present
                 if (dto.getVehicles() != null && !dto.getVehicles().isEmpty()) {
+
                     for (JdeVehicleResponseDTO vehicleDto : dto.getVehicles()) {
-                        log.info("Saving Vehicle: {}", vehicleDto.getVehicleNumber());
-                        Vehicle vehicle = new Vehicle();
+
+                        Vehicle vehicle = vehicleRepository
+                                .findByVehicleNumber(clean(vehicleDto.getVehicleNumber()))
+                                .orElse(new Vehicle());
+
                         vehicle.setVehicleNumber(clean(vehicleDto.getVehicleNumber()));
                         vehicle.setVehicleType(clean(vehicleDto.getVehicleType()));
                         vehicle.setMaxWeightCapacity(vehicleDto.getMaxWeightCapacity());
+                        vehicle.setMaxVolumeCapacity(vehicleDto.getMaxVolumeCapacity());
                         vehicle.setWeightUnit(clean(vehicleDto.getTotalWeight()));
                         vehicle.setVolumeUnit(clean(vehicleDto.getTotalVolume()));
-                        vehicle.setMaxVolumeCapacity(vehicleDto.getMaxVolumeCapacity());
                         vehicle.setGpsDeviceId(clean(vehicleDto.getGpsDeviceId()));
                         vehicle.setStatus(clean(vehicleDto.getStatus()));
                         vehicle.setTransporter(transporter);
 
                         vehicleRepository.save(vehicle);
                     }
-                } else {
-//                    log.info("No vehicles found for transporter addressNumber={}", dto.getAddressNumber());
                 }
+
             }
 
 //            log.info("Transporter and Vehicle Sync Completed");

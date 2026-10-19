@@ -1,6 +1,6 @@
 package com.tms.transportationManagementSystem.entity;
 
-import enums.TripStatus;
+import com.tms.transportationManagementSystem.enums.TripStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,9 +17,28 @@ public class Trip {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true)
     private String tripNo;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shipment_id")
+    private Shipment shipment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_id")
+    private Vehicle vehicle;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transporter_id")
+    private Transporter transporter;
+
     private String driverName;
+
+    private String driverMobile;
+
+    private LocalDateTime createdDate;
+
+    private LocalDateTime dispatchDate;
 
     private LocalDateTime startTime;
 
@@ -28,11 +47,4 @@ public class Trip {
     @Enumerated(EnumType.STRING)
     private TripStatus status;
 
-    @ManyToOne
-    @JoinColumn(name = "shipment_id")
-    private Shipment shipment;
-
-    @ManyToOne
-    @JoinColumn(name = "vehicle_id")
-    private Vehicle vehicle;
 }

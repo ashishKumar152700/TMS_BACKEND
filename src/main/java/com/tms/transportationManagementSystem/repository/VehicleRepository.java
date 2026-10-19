@@ -1,5 +1,6 @@
 package com.tms.transportationManagementSystem.repository;
 
+import com.tms.transportationManagementSystem.entity.Transporter;
 import com.tms.transportationManagementSystem.entity.Vehicle;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -14,7 +15,8 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
     List<Vehicle> findByStatus(String status);
 
-    @Modifying
-    @Query("delete from Vehicle v where v.transporter.id = :transporterId")
-    void deleteByTransporterId(Long transporterId);
+    List<Vehicle> findByTransporterAndVehicleTypeAndStatus(
+            Transporter transporter,
+            String vehicleType,
+            String status);
 }

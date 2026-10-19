@@ -1,4 +1,4 @@
-package com.tms.transportationManagementSystem.service.impl;
+package com.tms.transportationManagementSystem.serviceImpl;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.AddTransporterRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.TransporterResponseDTO;

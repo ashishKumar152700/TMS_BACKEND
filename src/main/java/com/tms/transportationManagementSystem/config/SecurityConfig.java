@@ -56,6 +56,11 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/vehicle-inspections/*/files/**"
+                        ).permitAll()
+
                         .anyRequest().authenticated()
                 )
 

@@ -12,4 +12,6 @@ public class TripRequestDTO {
     private Long vehicleId;
 
     private String driverName;
+
+    private String driverMobile;
 }
