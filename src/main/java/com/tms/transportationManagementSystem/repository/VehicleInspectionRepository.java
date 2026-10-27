@@ -22,4 +22,9 @@ public interface VehicleInspectionRepository
     List<VehicleInspection> findByReviewStatus(
             InspectionReviewStatus reviewStatus
     );
+
+    List<VehicleInspection> findByTrip_IdAndReviewStatus(
+            Long tripId,
+            InspectionReviewStatus reviewStatus
+    );
 }

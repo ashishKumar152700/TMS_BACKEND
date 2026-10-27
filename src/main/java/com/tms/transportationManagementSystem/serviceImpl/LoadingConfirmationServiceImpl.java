@@ -31,7 +31,7 @@ public class LoadingConfirmationServiceImpl implements LoadingConfirmationServic
     private final JdeSalesOrderLineRepository salesOrderLineRepository;
     private final JdeSalesOrderLineRepository jdeSalesOrderLineRepository;
     private final JdeSalesOrderRepository jdeSalesOrderRepository;
-
+    private final GatePassRepository gatePassRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -191,30 +191,69 @@ public class LoadingConfirmationServiceImpl implements LoadingConfirmationServic
         return mapResponse(loadingConfirmationRepository.save(confirmation));
     }
 
+
     @Override
     public LoadingConfirmationResponseDTO review(
             Long id,
             LoadingConfirmationReviewRequestDTO request
     ) {
         LoadingConfirmation confirmation = findConfirmation(id);
+
         if (confirmation.getStatus() != LoadingConfirmationStatus.SUBMITTED) {
-            throw new RuntimeException("Only SUBMITTED loading confirmations can be reviewed");
-        }
-        if (request.getStatus() != LoadingConfirmationStatus.APPROVED
-                && request.getStatus() != LoadingConfirmationStatus.REJECTED) {
-            throw new RuntimeException("Review status must be APPROVED or REJECTED");
-        }
-        if (request.getStatus() == LoadingConfirmationStatus.REJECTED
-                && (request.getRemarks() == null || request.getRemarks().isBlank())) {
-            throw new RuntimeException("Remarks are required when rejecting loading confirmation");
+            throw new RuntimeException(
+                    "Only SUBMITTED loading confirmations can be reviewed"
+            );
         }
 
+        if (request.getStatus() != LoadingConfirmationStatus.APPROVED
+                && request.getStatus() != LoadingConfirmationStatus.REJECTED) {
+            throw new RuntimeException(
+                    "Review status must be APPROVED or REJECTED"
+            );
+        }
+
+        if (request.getStatus() == LoadingConfirmationStatus.REJECTED
+                && (request.getRemarks() == null
+                || request.getRemarks().isBlank())) {
+            throw new RuntimeException(
+                    "Remarks are required when rejecting loading confirmation"
+            );
+        }
+
+        // Update supervisor review details
         confirmation.setStatus(request.getStatus());
         confirmation.setSupervisorRemarks(request.getRemarks());
         confirmation.setReviewedAt(LocalDateTime.now());
-        // reviewedBy/confirmedBy should be populated from your actual authenticated principal.
-        return mapResponse(loadingConfirmationRepository.save(confirmation));
+
+        // Supervisor approval ke baad Gate Pass status update hoga
+        if (request.getStatus() == LoadingConfirmationStatus.APPROVED) {
+
+            Long tripId = confirmation.getTrip().getId();
+
+            GatePass gatePass = gatePassRepository.findByTripId(tripId)
+                    .orElseThrow(() -> new RuntimeException(
+                            "Gate pass not found for trip: " + tripId
+                    ));
+
+            // Already gate out ho chuka hai to dobara ready mat karo
+            if (gatePass.getGateOutAt() != null
+                    || "GATE_OUT".equals(gatePass.getStatus())) {
+                throw new RuntimeException(
+                        "Gate out has already been completed"
+                );
+            }
+
+            gatePass.setStatus("READY_FOR_GATE_OUT");
+            gatePassRepository.save(gatePass);
+        }
+
+        // Save loading confirmation
+        LoadingConfirmation saved =
+                loadingConfirmationRepository.save(confirmation);
+
+        return mapResponse(saved);
     }
+
 
     private LoadingConfirmation findConfirmation(Long id) {
         return loadingConfirmationRepository.findById(id)

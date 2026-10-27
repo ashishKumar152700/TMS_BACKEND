@@ -217,4 +217,29 @@ public class VehicleInspectionResponseDTO {
     private String remarks;
 
     private LocalDateTime inspectedAt;
+
+
+    // Appointment Letter Details
+    private Long appointmentLetterId;
+    private String appointmentNumber;
+    private String appointmentLetterStatus;
+    private Boolean transporterAcceptance;
+    private String transporterRemarks;
+    private String transporterSignatureUrl;
+
+    // Appointment Gate and Dock
+    private String reportingGate;
+    private String loadingBay;
+    private String pickupLocation;
+
+    // Planned Reporting and Loading
+    private LocalDate reportingDate;
+    private LocalTime reportingTime;
+    private String loadingWindow;
+
+    // Expected Arrival
+    private LocalDate expectedArrivalDate;
+    private LocalTime expectedArrivalTime;
+
+
 }

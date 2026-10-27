@@ -1,3 +1,4 @@
+
 package com.tms.transportationManagementSystem.config;
 
 import com.tms.transportationManagementSystem.entity.User;
@@ -21,8 +22,14 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-
     private final UserRepository userRepository;
+
+    // Skip CORS preflight requests
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return "OPTIONS".equalsIgnoreCase(request.getMethod());
+    }
+
 
     @Override
     protected void doFilterInternal(
@@ -31,67 +38,78 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        final String authHeader =
-                request.getHeader("Authorization");
+        String authHeader = request.getHeader("Authorization");
 
-        String email = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
 
-        String token = null;
-
-        try {
-
-            if (authHeader != null &&
-                    authHeader.startsWith("Bearer ")) {
-
-                token = authHeader.substring(7);
-
-                if (jwtUtil.validateToken(token)) {
-
-                    email = jwtUtil.extractEmail(token);
+            try {
+                if (!jwtUtil.validateToken(token)) {
+                    writeUnauthorized(response, "Invalid or expired token");
+                    return;
                 }
-            }
 
-            if (email != null &&
-                    SecurityContextHolder
-                            .getContext()
-                            .getAuthentication() == null) {
+                String email = jwtUtil.extractEmail(token);
 
-                User user = userRepository
-                        .findByEmail(email)
-                        .orElse(null);
+                if (email == null || email.isBlank()) {
+                    writeUnauthorized(
+                            response,
+                            "Token does not contain a valid email"
+                    );
+                    return;
+                }
 
-                if (user != null) {
+                if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                    User user = userRepository.findByEmail(email).orElse(null);
 
-                    UsernamePasswordAuthenticationToken authToken =
+                    if (user == null) {
+                        writeUnauthorized(
+                                response,
+                                "Authenticated user not found in database"
+                        );
+                        return;
+                    }
+
+                    UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     user,
                                     null,
                                     Collections.emptyList()
                             );
 
-                    authToken.setDetails(
+                    authentication.setDetails(
                             new WebAuthenticationDetailsSource()
                                     .buildDetails(request)
                     );
 
-                    SecurityContextHolder
-                            .getContext()
-                            .setAuthentication(authToken);
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
                 }
+
+            } catch (Exception e) {
+                SecurityContextHolder.clearContext();
+
+                writeUnauthorized(response, "Authentication failed");
+                return;
             }
-
-        } catch (Exception e) {
-
-            response.setStatus(
-                    HttpServletResponse.SC_UNAUTHORIZED
-            );
-
-            response.getWriter()
-                    .write("Invalid Token");
-
-            return;
         }
 
+        // Keep this outside the authentication try-catch.
         filterChain.doFilter(request, response);
+    }
+
+
+    private void writeUnauthorized(
+            HttpServletResponse response,
+            String message
+    ) throws IOException {
+
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        response.getWriter().write(
+                "{\"status\":401,\"message\":\"" + message + "\"}"
+        );
     }
 }

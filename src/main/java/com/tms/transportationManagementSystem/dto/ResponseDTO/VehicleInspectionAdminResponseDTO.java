@@ -1,3 +1,4 @@
+
 package com.tms.transportationManagementSystem.dto.ResponseDTO;
 
 import lombok.Data;
@@ -16,4 +17,7 @@ public class VehicleInspectionAdminResponseDTO {
     private VehicleInspectionTransporterResponseDTO transporter;
 
     private VehicleInspectionResponseDTO vehicleInspection;
+
+    // Appointment letter ka current status
+    private String appointmentLetterStatus;
 }

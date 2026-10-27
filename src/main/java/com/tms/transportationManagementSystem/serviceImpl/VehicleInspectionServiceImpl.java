@@ -9,23 +9,17 @@ import com.tms.transportationManagementSystem.dto.ResponseDTO.VehicleInspectionT
 import com.tms.transportationManagementSystem.dto.ResponseDTO.VehicleInspectionShipmentResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.SalesOrderResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.SalesOrderLineResponseDTO;
-import com.tms.transportationManagementSystem.entity.JdeSalesOrder;
-import com.tms.transportationManagementSystem.entity.JdeSalesOrderLine;
-import com.tms.transportationManagementSystem.entity.Transporter;
-import com.tms.transportationManagementSystem.entity.Shipment;
-import com.tms.transportationManagementSystem.entity.Trip;
-import com.tms.transportationManagementSystem.entity.Vehicle;
-import com.tms.transportationManagementSystem.entity.VehicleInspection;
+import com.tms.transportationManagementSystem.entity.*;
 import com.tms.transportationManagementSystem.enums.InspectionResult;
 import com.tms.transportationManagementSystem.enums.InspectionReviewStatus;
 import com.tms.transportationManagementSystem.enums.GuardVerificationStatus;
+import com.tms.transportationManagementSystem.enums.ShipmentStatus;
 import com.tms.transportationManagementSystem.repository.*;
 import com.tms.transportationManagementSystem.service.VehicleInspectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import com.tms.transportationManagementSystem.entity.GatePass;
 import com.tms.transportationManagementSystem.repository.GatePassRepository;
 import java.util.UUID;
 
@@ -47,7 +41,11 @@ public class VehicleInspectionServiceImpl
 
     private final JdeSalesOrderRepository jdeSalesOrderRepository;
 
+    private final TransporterAppointmentLetterRepository transporterAppointmentLetterRepository;
+
     private final GatePassRepository gatePassRepository;
+
+    private final ShipmentRepository shipmentRepository;
 
     @Override
     @Transactional
@@ -102,6 +100,21 @@ public class VehicleInspectionServiceImpl
         if (shipment == null) {
             throw new RuntimeException(
                     "Shipment is not associated with trip: " + trip.getId());
+        }
+
+        TransporterAppointmentLetter appointmentLetter =
+                transporterAppointmentLetterRepository
+                        .findByTrip_Id(trip.getId())
+                        .orElseThrow(() -> new RuntimeException(
+                                "Appointment letter not found for this trip"
+                        ));
+
+        if (!"ACCEPTED".equalsIgnoreCase(appointmentLetter.getStatus())
+                || !Boolean.TRUE.equals(appointmentLetter.getTransporterAcceptance())) {
+
+            throw new RuntimeException(
+                    "Transporter must accept the appointment letter before guard verification"
+            );
         }
 
         inspection.setGuardVerificationStatus(status);
@@ -497,7 +510,16 @@ public class VehicleInspectionServiceImpl
                         inspection
                 );
 
+        ShipmentStatus currentStatus = shipment.getStatus();
+
+        shipment.setStatus(
+                ShipmentStatus.WAITING_FOR_VEHICLE_APPROVAL
+        );
+
+        shipmentRepository.save(shipment);
+
         return mapToResponse(savedInspection);
+
     }
 
 
@@ -510,7 +532,23 @@ public class VehicleInspectionServiceImpl
                         GuardVerificationStatus.ON_HOLD
                 ))
                 .stream()
-                .map(this::mapToResponse)
+                .map(inspection -> {
+                    VehicleInspectionResponseDTO response =
+                            mapToResponse(inspection);
+
+                    Trip trip = inspection.getTrip();
+
+                    TransporterAppointmentLetter letter =
+                            transporterAppointmentLetterRepository
+                                    .findByTrip_Id(trip.getId())
+                                    .orElse(null);
+
+                    response.setAppointmentLetterStatus(
+                            letter != null ? letter.getStatus() : null
+                    );
+
+                    return response;
+                })
                 .toList();
     }
 
@@ -821,6 +859,23 @@ public class VehicleInspectionServiceImpl
                 LocalDateTime.now()
         );
 
+        Shipment shipment = inspection.getTrip().getShipment();
+
+        if (shipment == null) {
+            throw new RuntimeException("Shipment not found for inspection");
+        }
+
+        if (requestDTO.getStatus() == InspectionReviewStatus.APPROVED) {
+            shipment.setStatus(
+                    ShipmentStatus.WAITING_FOR_APPOINTMENT_LETTER
+            );
+        } else if (requestDTO.getStatus() == InspectionReviewStatus.REJECTED) {
+            shipment.setStatus(ShipmentStatus.VEHICLE_REJECTED);
+        }
+
+        shipmentRepository.save(shipment);
+
+
         VehicleInspection savedInspection =
                 vehicleInspectionRepository.save(
                         inspection
@@ -911,6 +966,17 @@ public class VehicleInspectionServiceImpl
 
         response.setVehicleInspection(
                 mapToResponse(inspection)
+        );
+
+        TransporterAppointmentLetter appointmentLetter =
+                transporterAppointmentLetterRepository
+                        .findByTrip_Id(trip.getId())
+                        .orElse(null);
+
+        response.setAppointmentLetterStatus(
+                appointmentLetter != null
+                        ? appointmentLetter.getStatus()
+                        : null
         );
 
         if (shipment != null) {
@@ -1343,6 +1409,28 @@ public class VehicleInspectionServiceImpl
                     response.setGateOutAt(gatePass.getGateOutAt());
                 });
 
+        // Appointment Letter Details
+        transporterAppointmentLetterRepository
+                .findByTrip_Id(trip.getId())
+                .ifPresent(letter -> {
+                    response.setAppointmentLetterId(letter.getId());
+                    response.setAppointmentNumber(letter.getAppointmentNumber());
+                    response.setAppointmentLetterStatus(letter.getStatus());
+                    response.setTransporterAcceptance(letter.getTransporterAcceptance());
+                    response.setTransporterRemarks(letter.getTransporterRemarks());
+                    response.setTransporterSignatureUrl(letter.getTransporterSignatureUrl());
+
+                    response.setReportingGate(letter.getReportingGate());
+                    response.setLoadingBay(letter.getLoadingBay());
+                    response.setPickupLocation(letter.getPickupLocation());
+
+                    response.setReportingDate(letter.getReportingDate());
+                    response.setReportingTime(letter.getReportingTime());
+                    response.setLoadingWindow(letter.getLoadingWindow());
+
+                    response.setExpectedArrivalDate(letter.getExpectedArrivalDate());
+                    response.setExpectedArrivalTime(letter.getExpectedArrivalTime());
+                });
 
         // Admin Review
 
