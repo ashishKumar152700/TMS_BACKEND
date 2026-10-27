@@ -7,6 +7,7 @@ import com.tms.transportationManagementSystem.entity.Trip;
 import com.tms.transportationManagementSystem.entity.Vehicle;
 import com.tms.transportationManagementSystem.entity.Shipment;
 import com.tms.transportationManagementSystem.entity.VehicleInspection;
+import com.tms.transportationManagementSystem.enums.GuardVerificationStatus;
 import com.tms.transportationManagementSystem.repository.LoadingConfirmationRepository;
 import com.tms.transportationManagementSystem.repository.VehicleInspectionRepository;
 import com.tms.transportationManagementSystem.service.EligibleLoadingTripService;
@@ -44,13 +45,10 @@ public class EligibleLoadingTripServiceImpl
                         ));
 
         // Sirf accepted guard verification wale trips return honge.
-        return vehicleInspectionRepository.findAll()
+        // Filter DB query mein - pehle saari inspections (files ke saath) load hoti thi.
+        return vehicleInspectionRepository
+                .findByGuardVerificationStatus(GuardVerificationStatus.ACCEPTED)
                 .stream()
-                .filter(inspection ->
-                        inspection.getGuardVerificationStatus() != null
-                                && inspection.getGuardVerificationStatus().name()
-                                .equals("ACCEPTED")
-                )
                 .map(inspection -> {
 
                     Trip trip = inspection.getTrip();

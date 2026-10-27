@@ -18,6 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -65,18 +69,51 @@ public class GatePassServiceImpl implements GatePassService {
         tripRepository.save(trip);
         GatePass savedGatePass = gatePassRepository.save(gatePass);
 
-        return mapToResponse(savedGatePass);
+        return mapToResponse(
+                savedGatePass,
+                loadShipments(List.of(savedGatePass)),
+                Map.of(trip.getId(), trip)
+        );
     }
 
     @Override
     public List<GatePassResponseDTO> getAllGatePasses() {
-        return gatePassRepository.findAll()
-                .stream()
-                .map(this::mapToResponse)
+
+        List<GatePass> gatePasses = gatePassRepository.findAll();
+
+        // Shipments aur trips ek saath load (pehle har gate pass ke liye 2 findById)
+        Map<Long, Shipment> shipmentsById = loadShipments(gatePasses);
+
+        Map<Long, Trip> tripsById =
+                tripRepository.findAllById(
+                                gatePasses.stream()
+                                        .map(GatePass::getTripId)
+                                        .filter(Objects::nonNull)
+                                        .collect(Collectors.toSet()))
+                        .stream()
+                        .collect(Collectors.toMap(Trip::getId, Function.identity()));
+
+        return gatePasses.stream()
+                .map(gatePass -> mapToResponse(gatePass, shipmentsById, tripsById))
                 .toList();
     }
 
-    private GatePassResponseDTO mapToResponse(GatePass gatePass) {
+    private Map<Long, Shipment> loadShipments(List<GatePass> gatePasses) {
+
+        return shipmentRepository.findAllById(
+                        gatePasses.stream()
+                                .map(GatePass::getShipmentId)
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toSet()))
+                .stream()
+                .collect(Collectors.toMap(Shipment::getId, Function.identity()));
+    }
+
+    private GatePassResponseDTO mapToResponse(
+            GatePass gatePass,
+            Map<Long, Shipment> shipmentsById,
+            Map<Long, Trip> tripsById
+    ) {
 
         GatePassResponseDTO response = new GatePassResponseDTO();
 
@@ -92,9 +129,7 @@ public class GatePassServiceImpl implements GatePassService {
         );
 
         // Shipment details
-        Shipment shipment = shipmentRepository
-                .findById(gatePass.getShipmentId())
-                .orElse(null);
+        Shipment shipment = shipmentsById.get(gatePass.getShipmentId());
 
         if (shipment != null) {
 
@@ -140,9 +175,7 @@ public class GatePassServiceImpl implements GatePassService {
         }
 
         // Trip details
-        Trip trip = tripRepository
-                .findById(gatePass.getTripId())
-                .orElse(null);
+        Trip trip = tripsById.get(gatePass.getTripId());
 
         if (trip != null) {
 

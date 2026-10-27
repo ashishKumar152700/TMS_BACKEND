@@ -4,6 +4,7 @@ import com.tms.transportationManagementSystem.entity.JdeSalesOrder;
 import com.tms.transportationManagementSystem.entity.JdeSalesOrderLine;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface JdeSalesOrderLineRepository
@@ -14,4 +15,7 @@ public interface JdeSalesOrderLineRepository
     List<JdeSalesOrderLine> findBySalesOrder(JdeSalesOrder salesOrder);
 
     List<JdeSalesOrderLine> findBySalesOrder_Id(Long salesOrderId);
+
+    // Batch fetch: kai orders ki lines ek hi query mein
+    List<JdeSalesOrderLine> findBySalesOrder_IdIn(Collection<Long> salesOrderIds);
 }

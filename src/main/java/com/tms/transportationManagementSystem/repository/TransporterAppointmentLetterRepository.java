@@ -4,6 +4,7 @@ import com.tms.transportationManagementSystem.entity.TransporterAppointmentLette
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,4 +29,6 @@ public interface TransporterAppointmentLetterRepository
 
 
     boolean existsByTrip_Id(Long tripId);
+
+    List<TransporterAppointmentLetter> findByTrip_IdIn(Collection<Long> tripIds);
 }

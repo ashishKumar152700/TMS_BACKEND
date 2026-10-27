@@ -3,6 +3,7 @@ package com.tms.transportationManagementSystem.integration.jde.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tms.transportationManagementSystem.integration.jde.dto.response.JdeSalesOrderApiResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -11,6 +12,7 @@ import org.springframework.web.client.RestClient;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JdeSalesOrderClient {
@@ -42,8 +44,7 @@ public class JdeSalesOrderClient {
                     .retrieve()
                     .body(String.class);
 
-            System.out.println("========== SALES ORDER RESPONSE ==========");
-            System.out.println(response);
+            log.debug("SALES ORDER RESPONSE: {}", response);
 
             return objectMapper.readValue(
                     response,

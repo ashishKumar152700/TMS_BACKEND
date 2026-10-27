@@ -3,8 +3,6 @@ package com.tms.transportationManagementSystem.serviceImpl;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.AppointmentLetterListResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.VehicleDetailsDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentDetailsDTO;
-import com.tms.transportationManagementSystem.entity.TransporterAppointmentLetter;
-import java.util.List;
 import com.tms.transportationManagementSystem.dto.RequestDTO.AppointmentLetterCreateRequestDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.AppointmentLetterResponseRequestDTO;
 import com.tms.transportationManagementSystem.entity.*;
@@ -16,8 +14,6 @@ import com.tms.transportationManagementSystem.service.TransporterAppointmentLett
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.AppointmentLetterListResponseDTO;
-import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -120,19 +116,18 @@ public class TransporterAppointmentLetterServiceImpl
         letter.setBusinessUnit(request.getBusinessUnit());
         letter.setRouteCode(null);
 
-        letter.setSalesOrderNumbers(
+        // Ek hi query - pehle same orders do baar fetch ho rahe the
+        List<JdeSalesOrder> orders =
                 salesOrderRepository.findSalesOrdersByShipmentId(
-                                shipment.getId())
-                        .stream()
+                        shipment.getId());
+
+        letter.setSalesOrderNumbers(
+                orders.stream()
                         .map(JdeSalesOrder::getOrderNumber)
                         .filter(Objects::nonNull)
                         .distinct()
                         .reduce((a, b) -> a + ", " + b)
                         .orElse(null));
-
-        List<JdeSalesOrder> orders =
-                salesOrderRepository.findSalesOrdersByShipmentId(
-                        shipment.getId());
 
         if (!orders.isEmpty()) {
             JdeSalesOrder firstOrder = orders.get(0);

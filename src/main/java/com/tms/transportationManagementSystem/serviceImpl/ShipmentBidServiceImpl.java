@@ -13,7 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -24,8 +24,7 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
     private final TransporterRepository transporterRepository;
     private final UserRepository userRepository;
     private final TransporterShipmentBidTrackerRepository trackerRepository;
-    private final ShipmentOrderRepository shipmentOrderRepository;
-    private final JdeSalesOrderRepository orderRepository;
+    private final SalesOrderLookup salesOrderLookup;
 
 
     @Override
@@ -63,31 +62,21 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
         List<ShipmentBid> bids = shipmentBidRepository
                 .findByTransporterIdOrderByBidDateDesc(transporter.getId());
 
+        // Saare bids ke shipments ke orders ek saath load (N+1 se bachne ke liye)
+        Map<Long, List<JdeSalesOrder>> ordersByShipmentId =
+                salesOrderLookup.ordersByShipmentId(
+                        bids.stream()
+                                .map(bid -> bid.getShipment().getId())
+                                .toList()
+                );
+
         return bids.stream()
                 .map(bid -> {
 
                     Shipment shipment = bid.getShipment();
 
-                    List<ShipmentOrder> shipmentOrders =
-                            shipmentOrderRepository.findByShipmentId(shipment.getId());
-
                     List<ShipmentOrderResponseDTO> orderList =
-                            shipmentOrders.stream()
-                                    .map(so -> orderRepository.findById(so.getOrderId()).orElse(null))
-                                    .filter(Objects::nonNull)
-                                    .map(order -> ShipmentOrderResponseDTO.builder()
-                                            .orderId(order.getId())
-                                            .orderNumber(order.getOrderNumber())
-                                            .customerNumber(order.getCustomerNumber())
-                                            .customerName(order.getShipToCustomerName())
-                                            .city(order.getShipToCity())
-                                            .state(order.getShipToState())
-                                            .totalWeight(order.getTotalWeight())
-                                            .totalVolume(order.getTotalVolume())
-                                            .orderDate(order.getOrderDate())
-                                            .orderStatus(order.getOrderStatus().name())
-                                            .build())
-                                    .toList();
+                            toOrderDTOs(ordersByShipmentId, shipment.getId());
 
                     // Bid Status Display
                     String bidStatus;
@@ -144,30 +133,19 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
                 )
         );
 
+        Map<Long, List<JdeSalesOrder>> ordersByShipmentId =
+                salesOrderLookup.ordersByShipmentId(
+                        shipments.stream()
+                                .map(Shipment::getId)
+                                .toList()
+                );
+
         return shipments.stream()
                 .map(shipment -> {
 
                     // Orders
-                    List<ShipmentOrder> shipmentOrders =
-                            shipmentOrderRepository.findByShipmentId(shipment.getId());
-
                     List<ShipmentOrderResponseDTO> orderDTOs =
-                            shipmentOrders.stream()
-                                    .map(so -> orderRepository.findById(so.getOrderId()).orElse(null))
-                                    .filter(Objects::nonNull)
-                                    .map(order -> ShipmentOrderResponseDTO.builder()
-                                            .orderId(order.getId())
-                                            .orderNumber(order.getOrderNumber())
-                                            .customerNumber(order.getCustomerNumber())
-                                            .customerName(order.getShipToCustomerName())
-                                            .city(order.getShipToCity())
-                                            .state(order.getShipToState())
-                                            .totalWeight(order.getTotalWeight())
-                                            .totalVolume(order.getTotalVolume())
-                                            .orderDate(order.getOrderDate())
-                                            .orderStatus(order.getOrderStatus().name())
-                                            .build())
-                                    .toList();
+                            toOrderDTOs(ordersByShipmentId, shipment.getId());
 
                     // Bids
                     List<ShipmentBid> bids;
@@ -216,72 +194,6 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
                 })
                 .toList();
     }
-
-//    @Override
-//    public List<ShipmentBidManagementResponseDTO> getAllShipmentBidsForAdmin() {
-//
-//        List<Shipment> shipments =
-//                shipmentRepository.findByStatus(ShipmentStatus.BIDDING_OPEN);
-//
-//        return shipments.stream()
-//                .map(shipment -> {
-//
-//                    // Orders
-//                    List<ShipmentOrder> shipmentOrders =
-//                            shipmentOrderRepository.findByShipmentId(shipment.getId());
-//
-//                    List<ShipmentOrderResponseDTO> orderDTOs =
-//                            shipmentOrders.stream()
-//                                    .map(so -> orderRepository.findById(so.getOrderId()).orElse(null))
-//                                    .filter(Objects::nonNull)
-//                                    .map(order -> ShipmentOrderResponseDTO.builder()
-//                                            .orderId(order.getId())
-//                                            .orderNumber(order.getOrderNumber())
-//                                            .customerNumber(order.getCustomerNumber())
-//                                            .customerName(order.getShipToCustomerName())
-//                                            .city(order.getShipToCity())
-//                                            .state(order.getShipToState())
-//                                            .totalWeight(order.getTotalWeight())
-//                                            .totalVolume(order.getTotalVolume())
-//                                            .orderDate(order.getOrderDate())
-//                                            .orderStatus(order.getOrderStatus().name())
-//                                            .build())
-//                                    .toList();
-//
-//                    // Bids
-//                    List<ShipmentBidAdminResponseDTO> bidDTOs =
-//                            shipmentBidRepository
-//                                    .findByShipmentIdOrderByBidAmountAsc(shipment.getId())
-//                                    .stream()
-//                                    .map(bid -> ShipmentBidAdminResponseDTO.builder()
-//                                            .bidId(bid.getId())
-//                                            .transporterId(bid.getTransporter().getId())
-//                                            .transporterName(bid.getTransporter().getCompanyName())
-//                                            .bidAmount(bid.getBidAmount())
-//                                            .deliveryDays(bid.getDeliveryDays())
-//                                            .plannedPickupDate(bid.getPlannedPickupDate())
-//                                            .remarks(bid.getRemarks())
-//                                            .bidDate(bid.getBidDate())
-//                                            .bidStatus(bid.getBidStatus().name())
-//                                            .build())
-//                                    .toList();
-//
-//                    return ShipmentBidManagementResponseDTO.builder()
-//                            .shipmentId(shipment.getId())
-//                            .shipmentNo(shipment.getShipmentNo())
-//                            .vehicleType(shipment.getSelectedVehicleType())
-//                            .totalWeight(shipment.getTotalWeight())
-//                            .totalVolume(shipment.getTotalVolume())
-//                            .expectedPrice(shipment.getExpectedPrice())
-//                            .plannedPickupDate(shipment.getPlannedPickupDate())
-//                            .shipmentStatus(shipment.getStatus().name())
-//                            .orders(orderDTOs)
-//                            .bids(bidDTOs)
-//                            .build();
-//
-//                })
-//                .toList();
-//    }
 
     @Override
     public ShipmentBidResponseDTO placeBid(
@@ -398,6 +310,17 @@ public class ShipmentBidServiceImpl implements ShipmentBidService {
         shipmentRepository.save(shipment);
 
         return map(acceptedBid);
+    }
+
+    private List<ShipmentOrderResponseDTO> toOrderDTOs(
+            Map<Long, List<JdeSalesOrder>> ordersByShipmentId,
+            Long shipmentId
+    ) {
+
+        return ordersByShipmentId.getOrDefault(shipmentId, List.of())
+                .stream()
+                .map(SalesOrderLookup::toShipmentOrderDTO)
+                .toList();
     }
 
     private ShipmentBidResponseDTO map(ShipmentBid bid) {

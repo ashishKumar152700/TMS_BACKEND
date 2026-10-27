@@ -19,6 +19,11 @@ public interface VehicleInspectionRepository
 
     List<VehicleInspection> findByGuardVerificationStatusIn(List<GuardVerificationStatus> statuses);
 
+    List<VehicleInspection> findByGuardVerificationStatusInAndReviewStatus(
+            List<GuardVerificationStatus> statuses,
+            InspectionReviewStatus reviewStatus
+    );
+
     List<VehicleInspection> findByReviewStatus(
             InspectionReviewStatus reviewStatus
     );

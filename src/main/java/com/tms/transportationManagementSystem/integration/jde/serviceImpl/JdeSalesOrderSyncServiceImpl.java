@@ -15,6 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -36,9 +40,13 @@ public class JdeSalesOrderSyncServiceImpl implements JdeSalesOrderSyncService {
             return;
         }
 
+        // Existing order numbers ek hi query mein (pehle har order ke liye findByOrderNumber)
+        Set<String> existingOrderNumbers =
+                new HashSet<>(orderRepository.findAllOrderNumbers());
+
         for (JdeSalesOrderResponseDTO dto : response.getOrders()) {
 
-            if (orderRepository.findByOrderNumber(dto.getOrderNumber()).isPresent()) {
+            if (existingOrderNumbers.contains(dto.getOrderNumber())) {
                 continue;
             }
 
@@ -140,7 +148,12 @@ public class JdeSalesOrderSyncServiceImpl implements JdeSalesOrderSyncService {
 
             order = orderRepository.save(order);
 
+            // Isi sync mein dobara aaye same order number ko bhi skip karna hai
+            existingOrderNumbers.add(order.getOrderNumber());
+
             if (dto.getLines() != null) {
+
+                List<JdeSalesOrderLine> lines = new ArrayList<>();
 
                 for (JdeSalesOrderLineDTO lineDto : dto.getLines()) {
 
@@ -156,8 +169,10 @@ public class JdeSalesOrderSyncServiceImpl implements JdeSalesOrderSyncService {
                     line.setUnitPrice(lineDto.getUnitPrice());
                     line.setLineAmount(lineDto.getLineAmount());
 
-                    lineRepository.save(line);
+                    lines.add(line);
                 }
+
+                lineRepository.saveAll(lines);
             }
         }
 

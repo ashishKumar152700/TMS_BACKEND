@@ -13,11 +13,11 @@ import com.tms.transportationManagementSystem.service.LoadingConfirmationService
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.tms.transportationManagementSystem.repository.JdeSalesOrderLineRepository;
-import com.tms.transportationManagementSystem.repository.JdeSalesOrderRepository;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,11 +27,9 @@ public class LoadingConfirmationServiceImpl implements LoadingConfirmationServic
     private final LoadingConfirmationRepository loadingConfirmationRepository;
     private final TripRepository tripRepository;
     private final ShipmentOrderRepository shipmentOrderRepository;
-    private final JdeSalesOrderRepository salesOrderRepository;
     private final JdeSalesOrderLineRepository salesOrderLineRepository;
-    private final JdeSalesOrderLineRepository jdeSalesOrderLineRepository;
-    private final JdeSalesOrderRepository jdeSalesOrderRepository;
     private final GatePassRepository gatePassRepository;
+    private final SalesOrderLookup salesOrderLookup;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,31 +47,25 @@ public class LoadingConfirmationServiceImpl implements LoadingConfirmationServic
                     "Shipment not found for trip: " + tripId);
         }
 
-        List<ShipmentOrder> shipmentOrders =
-                shipmentOrderRepository.findByShipmentId(shipment.getId());
+        // Orders aur unki lines batch mein (pehle har order ke liye 2 queries)
+        List<JdeSalesOrder> salesOrders =
+                salesOrderLookup.ordersByShipmentId(List.of(shipment.getId()))
+                        .getOrDefault(shipment.getId(), List.of());
+
+        Map<Long, List<JdeSalesOrderLine>> linesByOrderId =
+                salesOrderLookup.linesByOrderId(
+                        salesOrders.stream()
+                                .map(JdeSalesOrder::getId)
+                                .toList()
+                );
 
         Map<Long, LoadingConfirmationItemDetailsDTO> uniqueItems =
                 new LinkedHashMap<>();
 
-        for (ShipmentOrder shipmentOrder : shipmentOrders) {
-
-            Long orderId = shipmentOrder.getOrderId();
-
-            if (orderId == null) {
-                continue;
-            }
-
-            JdeSalesOrder salesOrder = jdeSalesOrderRepository
-                    .findById(orderId)
-                    .orElse(null);
-
-            if (salesOrder == null) {
-                continue;
-            }
+        for (JdeSalesOrder salesOrder : salesOrders) {
 
             List<JdeSalesOrderLine> lines =
-                    jdeSalesOrderLineRepository
-                            .findBySalesOrder_Id(salesOrder.getId());
+                    linesByOrderId.getOrDefault(salesOrder.getId(), List.of());
 
             for (JdeSalesOrderLine line : lines) {
 
@@ -313,6 +305,19 @@ public class LoadingConfirmationServiceImpl implements LoadingConfirmationServic
         Set<Long> seenLineIds = new HashSet<>();
         List<LoadingConfirmationItem> newItems = new ArrayList<>();
 
+        // Saari requested lines ek query mein (pehle har item ke liye findById)
+        Map<Long, JdeSalesOrderLine> linesById =
+                salesOrderLineRepository.findAllById(
+                                itemRequests.stream()
+                                        .map(LoadingConfirmationItemRequestDTO::getSalesOrderLineId)
+                                        .filter(Objects::nonNull)
+                                        .collect(Collectors.toSet()))
+                        .stream()
+                        .collect(Collectors.toMap(
+                                JdeSalesOrderLine::getId,
+                                Function.identity()
+                        ));
+
         List<ShipmentOrder> shipmentOrders = shipmentOrderRepository.findByShipmentId(shipmentId);
         Set<Long> allowedOrderIds = new HashSet<>();
         for (ShipmentOrder shipmentOrder : shipmentOrders) {
@@ -328,10 +333,12 @@ public class LoadingConfirmationServiceImpl implements LoadingConfirmationServic
                         + itemRequest.getSalesOrderLineId());
             }
 
-            JdeSalesOrderLine line = salesOrderLineRepository.findById(
-                            itemRequest.getSalesOrderLineId())
-                    .orElseThrow(() -> new RuntimeException(
-                            "Sales order line not found: " + itemRequest.getSalesOrderLineId()));
+            JdeSalesOrderLine line = linesById.get(itemRequest.getSalesOrderLineId());
+
+            if (line == null) {
+                throw new RuntimeException(
+                        "Sales order line not found: " + itemRequest.getSalesOrderLineId());
+            }
 
             JdeSalesOrder order = line.getSalesOrder();
             if (order == null || !allowedOrderIds.contains(order.getId())) {

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,12 @@ public interface JdeSalesOrderRepository
     Optional<JdeSalesOrder> findByOrderNumber(String orderNumber);
 
     List<JdeSalesOrder> findByCustomerNumber(String customerNumber);
+
+    List<JdeSalesOrder> findByCustomerNumberIn(Collection<String> customerNumbers);
+
+    // Sync ke liye: saare existing order numbers ek query mein
+    @Query("select o.orderNumber from JdeSalesOrder o")
+    List<String> findAllOrderNumbers();
 
     long countByShipmentId(Long shipmentId);
 

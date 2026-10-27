@@ -4,6 +4,7 @@ import com.tms.transportationManagementSystem.dto.ResponseDTO.CustomerSalesOrder
 import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeCustomerResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderLineDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.JdeSalesOrderResponseDTO;
+import com.tms.transportationManagementSystem.entity.Customer;
 import com.tms.transportationManagementSystem.entity.JdeSalesOrder;
 import com.tms.transportationManagementSystem.repository.CustomerRepository;
 import com.tms.transportationManagementSystem.repository.JdeSalesOrderRepository;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,7 +26,19 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public List<JdeCustomerResponseDTO> getAllCustomersWithOrders() {
 
-        return customerRepository.findAll()
+        List<Customer> customers = customerRepository.findAll();
+
+        // Saare customers ke orders ek saath (pehle har customer ke liye alag query)
+        Map<String, List<JdeSalesOrder>> ordersByCustomerNumber =
+                SalesOrderLookup.inChunks(
+                                customers.stream()
+                                        .map(customer -> String.valueOf(customer.getAddressNumber()))
+                                        .toList(),
+                                salesOrderRepository::findByCustomerNumberIn)
+                        .stream()
+                        .collect(Collectors.groupingBy(JdeSalesOrder::getCustomerNumber));
+
+        return customers
                 .stream()
                 .map(customer -> {
 
@@ -42,70 +56,13 @@ public class CustomerServiceImpl implements CustomerService {
                     dto.setScheduleType(customer.getScheduleType());
 
                     List<JdeSalesOrderResponseDTO> salesOrders =
-                            salesOrderRepository
-                                    .findByCustomerNumber(
-                                            String.valueOf(customer.getAddressNumber())
+                            ordersByCustomerNumber
+                                    .getOrDefault(
+                                            String.valueOf(customer.getAddressNumber()),
+                                            List.of()
                                     )
                                     .stream()
-                                    .map(order -> {
-
-                                        JdeSalesOrderResponseDTO orderDto =
-                                                new JdeSalesOrderResponseDTO();
-
-                                        orderDto.setId(order.getId());
-                                        orderDto.setOrderNumber(order.getOrderNumber());
-                                        orderDto.setOrderType(order.getOrderType());
-                                        orderDto.setCompany(order.getCompany());
-                                        orderDto.setCustomerNumber(order.getCustomerNumber());
-
-                                        orderDto.setOrderDate(
-                                                order.getOrderDate() != null
-                                                        ? order.getOrderDate().toString()
-                                                        : null
-                                        );
-
-                                        orderDto.setRequestedDate(
-                                                order.getRequestedDate() != null
-                                                        ? order.getRequestedDate().toString()
-                                                        : null
-                                        );
-
-                                        orderDto.setBranchPlant(
-                                                order.getBranchPlant() != null
-                                                        ? order.getBranchPlant().trim()
-                                                        : null
-                                        );
-
-                                        orderDto.setStatus(order.getStatus());
-                                        orderDto.setCurrencyCode(order.getCurrencyCode());
-
-                                        if (order.getLines() != null) {
-
-                                            List<JdeSalesOrderLineDTO> lineDtos =
-                                                    order.getLines()
-                                                            .stream()
-                                                            .map(line -> {
-
-                                                                JdeSalesOrderLineDTO lineDto =
-                                                                        new JdeSalesOrderLineDTO();
-
-                                                                lineDto.setLineNumber(line.getLineNumber());
-                                                                lineDto.setItemNumber(line.getItemNumber());
-                                                                lineDto.setDescription(line.getDescription());
-                                                                lineDto.setQuantity(line.getQuantity());
-                                                                lineDto.setUom(line.getUom());
-                                                                lineDto.setUnitPrice(line.getUnitPrice());
-                                                                lineDto.setLineAmount(line.getLineAmount());
-
-                                                                return lineDto;
-                                                            })
-                                                            .toList();
-
-                                            orderDto.setLines(lineDtos);
-                                        }
-
-                                        return orderDto;
-                                    })
+                                    .map(this::toOrderDTO)
                                     .toList();
 
                     dto.setSalesOrders(salesOrders);
@@ -133,69 +90,72 @@ public class CustomerServiceImpl implements CustomerService {
         response.setCustomerName(customer.getAlphaName());
 
         List<JdeSalesOrderResponseDTO> salesOrderDtos = orders.stream()
-                .map(order -> {
-
-                    JdeSalesOrderResponseDTO dto =
-                            new JdeSalesOrderResponseDTO();
-
-                    dto.setId(order.getId());
-                    dto.setOrderNumber(order.getOrderNumber());
-                    dto.setOrderType(order.getOrderType());
-                    dto.setCompany(order.getCompany());
-                    dto.setCustomerNumber(order.getCustomerNumber());
-                    dto.setStatus(order.getStatus());
-                    dto.setCurrencyCode(order.getCurrencyCode());
-
-                    dto.setOrderDate(
-                            order.getOrderDate() != null
-                                    ? order.getOrderDate().toString()
-                                    : null
-                    );
-
-                    dto.setRequestedDate(
-                            order.getRequestedDate() != null
-                                    ? order.getRequestedDate().toString()
-                                    : null
-                    );
-
-                    dto.setBranchPlant(
-                            order.getBranchPlant() != null
-                                    ? order.getBranchPlant().trim()
-                                    : null
-                    );
-
-                    if (order.getLines() != null) {
-
-                        List<JdeSalesOrderLineDTO> lineDtos =
-                                order.getLines()
-                                        .stream()
-                                        .map(line -> {
-
-                                            JdeSalesOrderLineDTO lineDto =
-                                                    new JdeSalesOrderLineDTO();
-
-                                            lineDto.setLineNumber(line.getLineNumber());
-                                            lineDto.setItemNumber(line.getItemNumber());
-                                            lineDto.setDescription(line.getDescription());
-                                            lineDto.setQuantity(line.getQuantity());
-                                            lineDto.setUom(line.getUom());
-                                            lineDto.setUnitPrice(line.getUnitPrice());
-                                            lineDto.setLineAmount(line.getLineAmount());
-
-                                            return lineDto;
-                                        })
-                                        .toList();
-
-                        dto.setLines(lineDtos);
-                    }
-
-                    return dto;
-                })
+                .map(this::toOrderDTO)
                 .toList();
 
         response.setSalesOrders(salesOrderDtos);
 
         return response;
+    }
+
+    // Dono customer APIs mein same order mapping use hoti thi - ek jagah rakh di
+    private JdeSalesOrderResponseDTO toOrderDTO(JdeSalesOrder order) {
+
+        JdeSalesOrderResponseDTO dto =
+                new JdeSalesOrderResponseDTO();
+
+        dto.setId(order.getId());
+        dto.setOrderNumber(order.getOrderNumber());
+        dto.setOrderType(order.getOrderType());
+        dto.setCompany(order.getCompany());
+        dto.setCustomerNumber(order.getCustomerNumber());
+        dto.setStatus(order.getStatus());
+        dto.setCurrencyCode(order.getCurrencyCode());
+
+        dto.setOrderDate(
+                order.getOrderDate() != null
+                        ? order.getOrderDate().toString()
+                        : null
+        );
+
+        dto.setRequestedDate(
+                order.getRequestedDate() != null
+                        ? order.getRequestedDate().toString()
+                        : null
+        );
+
+        dto.setBranchPlant(
+                order.getBranchPlant() != null
+                        ? order.getBranchPlant().trim()
+                        : null
+        );
+
+        if (order.getLines() != null) {
+
+            List<JdeSalesOrderLineDTO> lineDtos =
+                    order.getLines()
+                            .stream()
+                            .map(line -> {
+
+                                JdeSalesOrderLineDTO lineDto =
+                                        new JdeSalesOrderLineDTO();
+
+                                lineDto.setLineNumber(line.getLineNumber());
+                                lineDto.setItemNumber(line.getItemNumber());
+                                lineDto.setDescription(line.getDescription());
+                                lineDto.setQuantity(line.getQuantity());
+                                lineDto.setUom(line.getUom());
+                                lineDto.setUnitPrice(line.getUnitPrice());
+                                lineDto.setLineAmount(line.getLineAmount());
+
+                                return lineDto;
+                            })
+                            .toList();
+
+            dto.setLines(lineDtos);
+        }
+
+        return dto;
     }
 
     @Override

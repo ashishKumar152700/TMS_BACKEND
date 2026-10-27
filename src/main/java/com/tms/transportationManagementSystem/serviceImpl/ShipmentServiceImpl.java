@@ -2,7 +2,6 @@ package com.tms.transportationManagementSystem.serviceImpl;
 
 import com.tms.transportationManagementSystem.dto.RequestDTO.OpenBidRequestDTO;
 import com.tms.transportationManagementSystem.dto.RequestDTO.ShipmentCreateRequestDTO;
-import com.tms.transportationManagementSystem.dto.ResponseDTO.AppliedBidResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentOrderResponseDTO;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.ShipmentResponseDTO;
 import com.tms.transportationManagementSystem.entity.*;
@@ -11,16 +10,17 @@ import com.tms.transportationManagementSystem.enums.ShipmentStatus;
 import com.tms.transportationManagementSystem.repository.*;
 import com.tms.transportationManagementSystem.service.ShipmentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -28,13 +28,12 @@ public class ShipmentServiceImpl implements ShipmentService {
 
 
     private final ShipmentRepository shipmentRepository;
-//    private final JwtService jwtService;
     private final ShipmentOrderRepository shipmentOrderRepository;
     private final TransporterRepository transporterRepository;
     private final JdeSalesOrderRepository orderRepository;
     private final VehicleRepository vehicleRepository;
     private final TransporterShipmentBidTrackerRepository trackerRepository;
-    private final UserRepository userRepository;
+    private final SalesOrderLookup salesOrderLookup;
 
     @Override
     public ShipmentResponseDTO openBid(
@@ -86,6 +85,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ShipmentResponseDTO> getOpenBids(String token) {
 
         User currentUser = (User) SecurityContextHolder
@@ -93,11 +93,11 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .getAuthentication()
                 .getPrincipal();
 
-        System.out.println("\n================ OPEN BIDS API ================");
-        System.out.println("User Id           : " + currentUser.getId());
-        System.out.println("User Name         : " + currentUser.getName());
-        System.out.println("Email             : " + currentUser.getEmail());
-        System.out.println("JDE Address No    : " + currentUser.getJdeAddressNumber());
+        log.debug("OPEN BIDS API | userId={} | name={} | email={} | jdeAddressNo={}",
+                currentUser.getId(),
+                currentUser.getName(),
+                currentUser.getEmail(),
+                currentUser.getJdeAddressNumber());
 
         Long jdeAddressNumber = currentUser.getJdeAddressNumber();
 
@@ -107,46 +107,36 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         Long transporterId = transporter.getId();
 
-        System.out.println("Transporter Id    : " + transporterId);
-        System.out.println("===============================================\n");
+        log.debug("OPEN BIDS API | transporterId={}", transporterId);
 
-        return shipmentRepository.findByStatus(ShipmentStatus.BIDDING_OPEN)
+        List<Shipment> shipments =
+                shipmentRepository.findByStatus(ShipmentStatus.BIDDING_OPEN);
+
+        // Is transporter ne kin shipments pe bid lagayi hai - ek hi query
+        Set<Long> alreadyBidShipmentIds =
+                trackerRepository.findByTransporterId(transporterId)
+                        .stream()
+                        .map(TransporterShipmentBidTracker::getShipmentId)
+                        .collect(Collectors.toSet());
+
+        Map<Long, List<JdeSalesOrder>> ordersByShipmentId =
+                loadOrders(shipments);
+
+        return shipments
                 .stream()
                 .map(shipment -> {
 
-                    boolean alreadyBid = trackerRepository
-                            .existsByShipmentIdAndTransporterId(
-                                    shipment.getId(),
-                                    transporterId
-                            );
+                    boolean alreadyBid =
+                            alreadyBidShipmentIds.contains(shipment.getId());
 
-                    System.out.println(
-                            "ShipmentId = " + shipment.getId()
-                                    + " | ShipmentNo = " + shipment.getShipmentNo()
-                                    + " | TransporterId = " + transporterId
-                                    + " | AlreadyBidPlaced = " + alreadyBid
-                    );
-
-                    List<ShipmentOrder> shipmentOrders =
-                            shipmentOrderRepository.findByShipmentId(shipment.getId());
+                    log.debug("ShipmentId = {} | ShipmentNo = {} | TransporterId = {} | AlreadyBidPlaced = {}",
+                            shipment.getId(),
+                            shipment.getShipmentNo(),
+                            transporterId,
+                            alreadyBid);
 
                     List<ShipmentOrderResponseDTO> orderDTOs =
-                            shipmentOrders.stream()
-                                    .map(so -> orderRepository.findById(so.getOrderId()).orElse(null))
-                                    .filter(Objects::nonNull)
-                                    .map(order -> ShipmentOrderResponseDTO.builder()
-                                            .orderId(order.getId())
-                                            .orderNumber(order.getOrderNumber())
-                                            .customerNumber(order.getCustomerNumber())
-                                            .customerName(order.getShipToCustomerName())
-                                            .city(order.getShipToCity())
-                                            .state(order.getShipToState())
-                                            .totalWeight(order.getTotalWeight())
-                                            .totalVolume(order.getTotalVolume())
-                                            .orderDate(order.getOrderDate())
-                                            .orderStatus(order.getOrderStatus().name())
-                                            .build())
-                                    .toList();
+                            toOrderDTOs(ordersByShipmentId, shipment.getId());
 
                     return ShipmentResponseDTO.builder()
                             .shipmentId(shipment.getId())
@@ -167,33 +157,18 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ShipmentResponseDTO> getAllShipments() {
 
         List<Shipment> shipments = shipmentRepository.findAll();
 
+        Map<Long, List<JdeSalesOrder>> ordersByShipmentId =
+                loadOrders(shipments);
+
         return shipments.stream().map(shipment -> {
 
-            List<ShipmentOrder> shipmentOrders =
-                    shipmentOrderRepository.findByShipmentId(shipment.getId());
-
             List<ShipmentOrderResponseDTO> orderDTOs =
-                    shipmentOrders.stream()
-                            .map(ShipmentOrder::getOrderId)
-                            .map(orderId -> orderRepository.findById(orderId).orElse(null))
-                            .filter(Objects::nonNull)
-                            .map(order -> ShipmentOrderResponseDTO.builder()
-                                    .orderId(order.getId())
-                                    .orderNumber(order.getOrderNumber())
-                                    .customerNumber(order.getCustomerNumber())
-                                    .customerName(order.getShipToCustomerName())
-                                    .city(order.getShipToCity())
-                                    .state(order.getShipToState())
-                                    .totalWeight(order.getTotalWeight())
-                                    .totalVolume(order.getTotalVolume())
-                                    .orderDate(order.getOrderDate())
-                                    .orderStatus(order.getOrderStatus().name())
-                                    .build())
-                            .toList();
+                    toOrderDTOs(ordersByShipmentId, shipment.getId());
 
             return ShipmentResponseDTO.builder()
                     .shipmentId(shipment.getId())
@@ -210,6 +185,27 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
 
+    // Saare shipments ke orders ek saath (pehle har order ke liye findById chalta tha)
+    private Map<Long, List<JdeSalesOrder>> loadOrders(List<Shipment> shipments) {
+
+        return salesOrderLookup.ordersByShipmentId(
+                shipments.stream()
+                        .map(Shipment::getId)
+                        .toList()
+        );
+    }
+
+    private List<ShipmentOrderResponseDTO> toOrderDTOs(
+            Map<Long, List<JdeSalesOrder>> ordersByShipmentId,
+            Long shipmentId
+    ) {
+
+        return ordersByShipmentId.getOrDefault(shipmentId, List.of())
+                .stream()
+                .map(SalesOrderLookup::toShipmentOrderDTO)
+                .toList();
+    }
+
 
     @Override
     public ShipmentResponseDTO createShipment(
@@ -224,6 +220,16 @@ public class ShipmentServiceImpl implements ShipmentService {
                     "No orders found");
         }
 
+        // Kaunse orders pehle se kisi shipment mein hain - ek hi query
+        Set<Long> alreadyAssignedOrderIds =
+                shipmentOrderRepository.findByOrderIdIn(
+                                orders.stream()
+                                        .map(JdeSalesOrder::getId)
+                                        .toList())
+                        .stream()
+                        .map(ShipmentOrder::getOrderId)
+                        .collect(Collectors.toSet());
+
         // Validation
         for (JdeSalesOrder order : orders) {
 
@@ -237,8 +243,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                                 + " is not in ROUTE_ASSIGNED status");
             }
 
-            if (shipmentOrderRepository
-                    .existsByOrderId(order.getId())) {
+            if (alreadyAssignedOrderIds.contains(order.getId())) {
 
                 throw new RuntimeException(
                         "Order already assigned to shipment : "
@@ -260,31 +265,17 @@ public class ShipmentServiceImpl implements ShipmentService {
                         .mapToDouble(BigDecimal::doubleValue)
                         .sum();
 
+        // Vehicle sirf validate hota hai (shipment pe set nahi hota, pehle jaisa hi)
+        if (request.getVehicleId() != null
+                && !vehicleRepository.existsById(request.getVehicleId())) {
+
+            throw new RuntimeException(
+                    "Vehicle not found : "
+                            + request.getVehicleId());
+        }
+
         Shipment shipment = new Shipment();
 
-        shipment.setRouteId(
-                request.getRouteId());
-
-        shipment.setSelectedVehicleType(
-                request.getSelectedVehicleType());
-
-        shipment.setSelectedVehicleCount(
-                request.getSelectedVehicleCount() != null
-                        ? request.getSelectedVehicleCount()
-                        : 1);
-
-        if (request.getVehicleId() != null) {
-
-            Vehicle vehicle =
-                    vehicleRepository.findById(
-                                    request.getVehicleId())
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Vehicle not found : "
-                                                    + request.getVehicleId()));
-
-//            shipment.setVehicle(vehicle);
-        }
         shipment.setShipmentNo(
                 "SHP-" +
                         UUID.randomUUID()
@@ -309,18 +300,6 @@ public class ShipmentServiceImpl implements ShipmentService {
                         ? request.getSelectedVehicleCount()
                         : 1);
 
-        if (request.getVehicleId() != null) {
-
-            Vehicle vehicle =
-                    vehicleRepository.findById(
-                                    request.getVehicleId())
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Vehicle not found"));
-
-//            shipment.setVehicle(vehicle);
-        }
-
         shipment.setStatus(
                 ShipmentStatus.PLANNING);
 
@@ -329,27 +308,24 @@ public class ShipmentServiceImpl implements ShipmentService {
                         shipment);
 
 
+        List<ShipmentOrder> shipmentOrders = new ArrayList<>(orders.size());
+
         for (JdeSalesOrder order : orders) {
 
             ShipmentOrder shipmentOrder = new ShipmentOrder();
             shipmentOrder.setShipmentId(savedShipment.getId());
             shipmentOrder.setOrderId(order.getId());
+            shipmentOrders.add(shipmentOrder);
 
-            shipmentOrderRepository.save(shipmentOrder);
-
-            System.out.println("=================================");
-            System.out.println("Updating Order : " + order.getId());
-            System.out.println("Before Status : " + order.getOrderStatus());
+            log.debug("Updating Order : {} | Before Status : {}",
+                    order.getId(), order.getOrderStatus());
 
             order.setOrderStatus(OrderStatus.SHIPMENT_PLANNED);
-
-            JdeSalesOrder updatedOrder = orderRepository.save(order);
-
-            orderRepository.flush();
-
-            System.out.println("After Status : " + updatedOrder.getOrderStatus());
-            System.out.println("=================================");
         }
+
+        shipmentOrderRepository.saveAll(shipmentOrders);
+        orderRepository.saveAll(orders);
+        orderRepository.flush();
 
         return ShipmentResponseDTO.builder()
                 .shipmentId(

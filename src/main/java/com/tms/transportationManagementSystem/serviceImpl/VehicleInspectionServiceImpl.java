@@ -20,13 +20,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import com.tms.transportationManagementSystem.repository.GatePassRepository;
 import java.util.UUID;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,15 +40,20 @@ public class VehicleInspectionServiceImpl
 
     private final TripRepository tripRepository;
 
-    private final ShipmentOrderRepository shipmentOrderRepository;
-
-    private final JdeSalesOrderRepository jdeSalesOrderRepository;
+    private final SalesOrderLookup salesOrderLookup;
 
     private final TransporterAppointmentLetterRepository transporterAppointmentLetterRepository;
 
     private final GatePassRepository gatePassRepository;
 
     private final ShipmentRepository shipmentRepository;
+
+    // Response mapping ke liye pehle se batch-load kiya hua related data
+    private record InspectionLookups(
+            Map<Long, TransporterAppointmentLetter> lettersByTripId,
+            Map<Long, GatePass> gatePassesByInspectionId
+    ) {
+    }
 
     @Override
     @Transactional
@@ -510,8 +518,6 @@ public class VehicleInspectionServiceImpl
                         inspection
                 );
 
-        ShipmentStatus currentStatus = shipment.getStatus();
-
         shipment.setStatus(
                 ShipmentStatus.WAITING_FOR_VEHICLE_APPROVAL
         );
@@ -526,29 +532,31 @@ public class VehicleInspectionServiceImpl
     @Override
     @Transactional(readOnly = true)
     public List<VehicleInspectionResponseDTO> getGuardPendingInspections() {
-        return vehicleInspectionRepository
-                .findByGuardVerificationStatusIn(List.of(
-                        GuardVerificationStatus.PENDING,
-                        GuardVerificationStatus.ON_HOLD
-                ))
+        List<VehicleInspection> inspections = vehicleInspectionRepository
+                .findByGuardVerificationStatusInAndReviewStatus(
+                        List.of(
+                                GuardVerificationStatus.PENDING,
+                                GuardVerificationStatus.ON_HOLD
+                        ),
+                        InspectionReviewStatus.APPROVED
+                )
                 .stream()
-                .map(inspection -> {
-                    VehicleInspectionResponseDTO response =
-                            mapToResponse(inspection);
+                .filter(inspection -> inspection.getTrip() != null)
+                .toList();
 
-                    Trip trip = inspection.getTrip();
+        InspectionLookups lookups = loadLookups(inspections);
 
+        return inspections.stream()
+                // Sirf wahi trucks jinka appointment letter transporter ne accept kiya hai
+                .filter(inspection -> {
                     TransporterAppointmentLetter letter =
-                            transporterAppointmentLetterRepository
-                                    .findByTrip_Id(trip.getId())
-                                    .orElse(null);
+                            lookups.lettersByTripId().get(inspection.getTrip().getId());
 
-                    response.setAppointmentLetterStatus(
-                            letter != null ? letter.getStatus() : null
-                    );
-
-                    return response;
+                    return letter != null
+                            && "ACCEPTED".equalsIgnoreCase(letter.getStatus())
+                            && Boolean.TRUE.equals(letter.getTransporterAcceptance());
                 })
+                .map(inspection -> mapToResponse(inspection, lookups))
                 .toList();
     }
 
@@ -788,23 +796,18 @@ public class VehicleInspectionServiceImpl
     @Transactional(readOnly = true)
     public List<VehicleInspectionResponseDTO> getAllInspections() {
 
-        return vehicleInspectionRepository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return mapAllToResponse(vehicleInspectionRepository.findAll());
     }
 
 
     @Override
     public List<VehicleInspectionResponseDTO> getPendingReviews() {
 
-        return vehicleInspectionRepository
-                .findByReviewStatus(
+        return mapAllToResponse(
+                vehicleInspectionRepository.findByReviewStatus(
                         InspectionReviewStatus.PENDING_REVIEW
                 )
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        );
     }
 
 
@@ -921,8 +924,14 @@ public class VehicleInspectionServiceImpl
             );
         }
 
+        InspectionLookups lookups = loadLookups(inspections);
+
+        Map<Long, List<JdeSalesOrder>> ordersByShipmentId =
+                loadSalesOrders(inspections);
+
         return inspections.stream()
-                .map(this::mapToAdminResponse)
+                .map(inspection -> mapToAdminResponse(
+                        inspection, lookups, ordersByShipmentId))
                 .toList();
     }
 
@@ -941,12 +950,20 @@ public class VehicleInspectionServiceImpl
                                 )
                         );
 
-        return mapToAdminResponse(inspection);
+        List<VehicleInspection> single = List.of(inspection);
+
+        return mapToAdminResponse(
+                inspection,
+                loadLookups(single),
+                loadSalesOrders(single)
+        );
     }
 
 
     private VehicleInspectionAdminResponseDTO mapToAdminResponse(
-            VehicleInspection inspection
+            VehicleInspection inspection,
+            InspectionLookups lookups,
+            Map<Long, List<JdeSalesOrder>> ordersByShipmentId
     ) {
 
         VehicleInspectionAdminResponseDTO response =
@@ -965,13 +982,11 @@ public class VehicleInspectionServiceImpl
         Shipment shipment = trip.getShipment();
 
         response.setVehicleInspection(
-                mapToResponse(inspection)
+                mapToResponse(inspection, lookups)
         );
 
         TransporterAppointmentLetter appointmentLetter =
-                transporterAppointmentLetterRepository
-                        .findByTrip_Id(trip.getId())
-                        .orElse(null);
+                lookups.lettersByTripId().get(trip.getId());
 
         response.setAppointmentLetterStatus(
                 appointmentLetter != null
@@ -997,14 +1012,8 @@ public class VehicleInspectionServiceImpl
         if (shipment != null) {
 
             List<SalesOrderResponseDTO> salesOrders =
-                    shipmentOrderRepository.findByShipmentId(shipment.getId())
+                    ordersByShipmentId.getOrDefault(shipment.getId(), List.of())
                             .stream()
-                            .map(shipmentOrder ->
-                                    jdeSalesOrderRepository
-                                            .findById(shipmentOrder.getOrderId())
-                                            .orElse(null)
-                            )
-                            .filter(Objects::nonNull)
                             .map(this::mapToSalesOrderResponse)
                             .toList();
 
@@ -1141,6 +1150,85 @@ public class VehicleInspectionServiceImpl
 
     private VehicleInspectionResponseDTO mapToResponse(
             VehicleInspection inspection
+    ) {
+        return mapToResponse(inspection, loadLookups(List.of(inspection)));
+    }
+
+
+    private List<VehicleInspectionResponseDTO> mapAllToResponse(
+            List<VehicleInspection> inspections
+    ) {
+
+        InspectionLookups lookups = loadLookups(inspections);
+
+        return inspections.stream()
+                .map(inspection -> mapToResponse(inspection, lookups))
+                .toList();
+    }
+
+
+    // Inspections ke appointment letters aur gate passes ek saath load
+    // (pehle har inspection ke liye 2 alag queries jati thi)
+    private InspectionLookups loadLookups(
+            List<VehicleInspection> inspections
+    ) {
+
+        List<Long> tripIds = inspections.stream()
+                .map(VehicleInspection::getTrip)
+                .filter(Objects::nonNull)
+                .map(Trip::getId)
+                .toList();
+
+        List<Long> inspectionIds = inspections.stream()
+                .map(VehicleInspection::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        Map<Long, TransporterAppointmentLetter> lettersByTripId =
+                SalesOrderLookup.inChunks(
+                                tripIds,
+                                transporterAppointmentLetterRepository::findByTrip_IdIn)
+                        .stream()
+                        .collect(Collectors.toMap(
+                                letter -> letter.getTrip().getId(),
+                                Function.identity(),
+                                (first, second) -> first
+                        ));
+
+        Map<Long, GatePass> gatePassesByInspectionId =
+                SalesOrderLookup.inChunks(
+                                inspectionIds,
+                                gatePassRepository::findByVehicleInspectionIdIn)
+                        .stream()
+                        .collect(Collectors.toMap(
+                                GatePass::getVehicleInspectionId,
+                                Function.identity(),
+                                (first, second) -> first
+                        ));
+
+        return new InspectionLookups(lettersByTripId, gatePassesByInspectionId);
+    }
+
+
+    private Map<Long, List<JdeSalesOrder>> loadSalesOrders(
+            List<VehicleInspection> inspections
+    ) {
+
+        return salesOrderLookup.ordersByShipmentId(
+                inspections.stream()
+                        .map(VehicleInspection::getTrip)
+                        .filter(Objects::nonNull)
+                        .map(Trip::getShipment)
+                        .filter(Objects::nonNull)
+                        .map(Shipment::getId)
+                        .toList()
+        );
+    }
+
+
+    private VehicleInspectionResponseDTO mapToResponse(
+            VehicleInspection inspection,
+            InspectionLookups lookups
     ) {
 
         VehicleInspectionResponseDTO response =
@@ -1402,7 +1490,8 @@ public class VehicleInspectionServiceImpl
         response.setGuardVerificationRemarks(inspection.getGuardVerificationRemarks());
         response.setGuardVerifiedAt(inspection.getGuardVerifiedAt());
 
-        gatePassRepository.findByVehicleInspectionId(inspection.getId())
+        Optional.ofNullable(
+                        lookups.gatePassesByInspectionId().get(inspection.getId()))
                 .ifPresent(gatePass -> {
                     response.setGateId(gatePass.getGateId());
                     response.setGateInAt(gatePass.getGateInAt());
@@ -1410,8 +1499,8 @@ public class VehicleInspectionServiceImpl
                 });
 
         // Appointment Letter Details
-        transporterAppointmentLetterRepository
-                .findByTrip_Id(trip.getId())
+        Optional.ofNullable(
+                        lookups.lettersByTripId().get(trip.getId()))
                 .ifPresent(letter -> {
                     response.setAppointmentLetterId(letter.getId());
                     response.setAppointmentNumber(letter.getAppointmentNumber());
