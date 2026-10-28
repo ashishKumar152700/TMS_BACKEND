@@ -5,7 +5,7 @@ import java.util.List;
 
 public interface GatePassService {
 
-    List<GatePassResponseDTO> getAllGatePasses();
+    List<GatePassResponseDTO> getAllGatePasses(String status);
 
     GatePassResponseDTO gateOut(Long gatePassId);
 

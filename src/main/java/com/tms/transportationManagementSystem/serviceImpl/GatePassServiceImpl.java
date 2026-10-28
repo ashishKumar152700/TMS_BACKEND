@@ -77,9 +77,12 @@ public class GatePassServiceImpl implements GatePassService {
     }
 
     @Override
-    public List<GatePassResponseDTO> getAllGatePasses() {
+    public List<GatePassResponseDTO> getAllGatePasses(String status) {
 
-        List<GatePass> gatePasses = gatePassRepository.findAll();
+        // status na aaye to saare gate pass (pehle jaisa), warna sirf us status wale
+        List<GatePass> gatePasses = (status == null || status.isBlank())
+                ? gatePassRepository.findAll()
+                : gatePassRepository.findByStatus(status.trim().toUpperCase());
 
         // Shipments aur trips ek saath load (pehle har gate pass ke liye 2 findById)
         Map<Long, Shipment> shipmentsById = loadShipments(gatePasses);

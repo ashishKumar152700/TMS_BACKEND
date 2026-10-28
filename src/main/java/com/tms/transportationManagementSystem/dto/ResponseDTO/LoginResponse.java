@@ -18,4 +18,7 @@ public class LoginResponse {
     private String email;
     private String name;
     private Set<String> roles;
+
+    // Sirf TRANSPORTER role wale user ke liye, baaki ke liye null
+    private Long transporterId;
 }

@@ -15,8 +15,9 @@ public class GatePassController {
     private final GatePassService gatePassService;
 
     @GetMapping
-    public List<GatePassResponseDTO> getAllGatePasses() {
-        return gatePassService.getAllGatePasses();
+    public List<GatePassResponseDTO> getAllGatePasses(
+            @RequestParam(required = false) String status) {
+        return gatePassService.getAllGatePasses(status);
     }
 
     @PostMapping("/{id}/gate-out")

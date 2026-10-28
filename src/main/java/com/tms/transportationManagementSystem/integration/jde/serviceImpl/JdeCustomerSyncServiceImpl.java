@@ -6,9 +6,15 @@ import com.tms.transportationManagementSystem.integration.jde.dto.response.JdeCu
 import com.tms.transportationManagementSystem.integration.jde.dto.response.JdeCustomerResponseDTO;
 import com.tms.transportationManagementSystem.integration.jde.service.JdeCustomerSyncService;
 import com.tms.transportationManagementSystem.repository.CustomerRepository;
+import com.tms.transportationManagementSystem.serviceImpl.SalesOrderLookup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -28,11 +34,22 @@ public class JdeCustomerSyncServiceImpl implements JdeCustomerSyncService {
             return;
         }
 
+        // Existing address numbers ek hi query mein (pehle har customer ke liye findByAddressNumber)
+        Set<Long> existingAddressNumbers =
+                new HashSet<>(customerRepository.findAllAddressNumbers());
+
+        List<Customer> newCustomers = new ArrayList<>();
+
         for (JdeCustomerResponseDTO dto : response.getCustomerData()) {
 
-            Customer customer = customerRepository
-                    .findByAddressNumber(dto.getAddressNumber())
-                    .orElse(new Customer());
+            // Sirf naya customer insert hoga. DB mein pehle se hai to skip -
+            // TMS mein kiye gaye changes overwrite nahi honge.
+            // add() false = DB mein hai ya isi response mein pehle aa chuka hai.
+            if (!existingAddressNumbers.add(dto.getAddressNumber())) {
+                continue;
+            }
+
+            Customer customer = new Customer();
 
             customer.setAddressNumber(dto.getAddressNumber());
             customer.setAlphaName(dto.getCustomerName());
@@ -50,10 +67,13 @@ public class JdeCustomerSyncServiceImpl implements JdeCustomerSyncService {
             customer.setActive(dto.getActive());
             customer.setRemarks(dto.getRemarks());
 
-            customerRepository.save(customer);
+            newCustomers.add(customer);
         }
 
-        log.info("Customer Sync Completed. Total Records : {}",
-                response.getCustomerData().size());
+        // Har chunk ek transaction mein save (pehle har row ka alag transaction)
+        SalesOrderLookup.inChunks(newCustomers, customerRepository::saveAll);
+
+        log.info("Customer Sync Completed. Total Records : {} | New Inserted : {}",
+                response.getCustomerData().size(), newCustomers.size());
     }
 }

@@ -177,3 +177,52 @@ git checkout -- . && git clean -f src/main/java/com/tms/transportationManagement
 ```
 
 > Note: `git checkout -- .` pehle wala guard/pending feature change bhi revert kar dega.
+
+---
+
+## 9. JDE Schedulers – ab sirf INSERT, overwrite nahi (functional change)
+
+**Problem:** Customer, Item aur Transporter/Vehicle schedulers JDE se data laakar DB ki existing rows **overwrite** kar dete the, isliye TMS mein kiye gaye manual changes mit jaate the.
+
+**Ab:** har scheduler sirf **naye records insert** karta hai. Jo record DB mein pehle se hai use **touch nahi karta**.
+
+| Sync | Existing check (key) | Pehle | Ab |
+|---|---|---|---|
+| `JdeCustomerSyncServiceImpl` | `addressNumber` | Existing customer ke saare fields overwrite | Existing skip, sirf naya insert |
+| `JdeItemSyncServiceImpl` | `itemNumber` (trimmed) | Existing item overwrite | Existing skip, sirf naya insert. Blank/null item number wali row skip (pehle isse sync crash ho jata tha) |
+| `JdeTransporterSyncService` (transporter) | `addressNumber` | Existing transporter overwrite | Existing transporter touch nahi hota |
+| `JdeTransporterSyncService` (vehicle) | `vehicleNumber` | Existing vehicle overwrite (transporter bhi reassign) | Existing skip. **Naya vehicle insert hota hai**, chahe transporter pehle se ho (existing transporter se link hota hai) |
+| `JdeSalesOrderSyncServiceImpl` | `orderNumber` | Pehle se insert-only tha | Koi change nahi |
+
+Customer aur Item sync ke log mein ab `New Inserted` count bhi aata hai.
+
+> Dhyan dein: ab JDE mein kisi existing record mein change hoga to wo change TMS mein **nahi aayega**. Wo record TMS mein manually update karna padega.
+
+---
+
+## 10. Login response mein `transporterId`
+
+`POST /auth/login` (`AuthController`, `LoginResponse`): role `TRANSPORTER` ho to response mein `transporterId` bhi aata hai (user ke `jdeAddressNumber` se `jde_transporters` lookup). Baaki roles ya transporter na mile to `null`. Purani fields same hain.
+
+## 11. Gate pass list pe optional status filter
+
+`GET /api/gate-passes?status=READY_FOR_GATE_OUT` (`GatePassController`, `GatePassService`, `GatePassServiceImpl`): `status` diya to sirf us status ke gate pass aate hain (case-insensitive). `status` na do to pehle jaise saare aate hain, isliye existing frontend call par koi asar nahi.
+
+## 12. JDE Schedulers – performance optimization (koi API / response change nahi)
+
+Insert-only behaviour (section 9) waisa hi hai. Sirf DB kaam kam aur fast kiya gaya hai.
+
+| Sync | Pehle | Ab |
+|---|---|---|
+| Customer | Har customer ke liye `findByAddressNumber` + har row ka alag `save` (alag transaction) | Saare address numbers 1 query mein (`findAllAddressNumbers`). Naye customers 1000-1000 ke chunk mein `saveAll` |
+| Item | Har item ke liye `findByItemNumber` + alag `save` | Saare item numbers 1 query mein (`findAllItemNumbers`). Chunk mein `saveAll`. Response `null` aaye to NPE ki jagah log + return |
+| Transporter / Vehicle | Har transporter aur har vehicle ke liye alag `findBy...` + alag `save`. JDE HTTP call bhi transaction ke andar | Response ke transporters 1 query mein (`findByAddressNumberIn`), saare vehicle numbers 1 query mein (`findAllVehicleNumbers`). Vehicles ek `saveAll` mein. JDE call transaction ke bahar (`TransactionTemplate`), DB kaam pehle jaisa ek hi transaction mein. Har vehicle ka `info` log ab `debug`. Error pehle chupchaap gayab ho jaata tha, ab `log.error` hota hai |
+| Sales Order | Har order ka alag `save`, har order ki lines ka alag `saveAll`. JDE HTTP call transaction ke andar | Saare orders ek `saveAll`, saari lines ek `saveAll`. JDE call transaction ke bahar, DB kaam pehle jaisa ek hi transaction mein |
+
+Ek hi JDE response mein same key (address number / item number / vehicle number) do baar aaye to pehle jaisa sirf pehla record insert hota hai.
+
+**Naye repository methods:** `CustomerRepository.findAllAddressNumbers`, `ItemMasterRepository.findAllItemNumbers`, `TransporterRepository.findByAddressNumberIn`, `VehicleRepository.findAllVehicleNumbers`.
+
+> Note: Customer/Item mein pehle har row turant commit hoti thi. Ab 1000 rows ka chunk ek saath commit hota hai. Beech mein DB error aaye to sirf us chunk ki rows rollback hongi.
+>
+> Entities `GenerationType.IDENTITY` use karti hain, isliye Hibernate JDBC batch insert nahi kar sakta. Har row ka INSERT abhi bhi alag statement hai. Bachat SELECT queries aur transactions/commits ki hai.

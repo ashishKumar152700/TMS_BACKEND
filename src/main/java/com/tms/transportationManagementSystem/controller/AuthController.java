@@ -3,7 +3,9 @@ package com.tms.transportationManagementSystem.controller;
 import com.tms.transportationManagementSystem.config.JwtUtil;
 import com.tms.transportationManagementSystem.dto.RequestDTO.LoginRequest;
 import com.tms.transportationManagementSystem.dto.ResponseDTO.LoginResponse;
+import com.tms.transportationManagementSystem.entity.Transporter;
 import com.tms.transportationManagementSystem.entity.User;
+import com.tms.transportationManagementSystem.repository.TransporterRepository;
 import com.tms.transportationManagementSystem.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import com.tms.transportationManagementSystem.entity.Role;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
 public class AuthController {
 
     private final UserRepository userRepository;
+
+    private final TransporterRepository transporterRepository;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -46,12 +50,26 @@ public class AuthController {
                 .map(Role::getRoleName)
                 .collect(Collectors.toSet());
 
+        // Transporter role hai to JDE address number se transporter ID nikalo
+        Long transporterId = null;
+
+        boolean isTransporter = roleNames.stream()
+                .anyMatch(role -> "TRANSPORTER".equalsIgnoreCase(role));
+
+        if (isTransporter && user.getJdeAddressNumber() != null) {
+            transporterId = transporterRepository
+                    .findByAddressNumber(user.getJdeAddressNumber())
+                    .map(Transporter::getId)
+                    .orElse(null);
+        }
+
         return LoginResponse.builder()
                 .token(token)
                 .userId(user.getId())
                 .email(user.getEmail())
                 .name(user.getName())
                 .roles(roleNames)
+                .transporterId(transporterId)
                 .build();
     }
 }

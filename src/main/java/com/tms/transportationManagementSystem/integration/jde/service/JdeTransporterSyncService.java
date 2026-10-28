@@ -9,23 +9,25 @@ import com.tms.transportationManagementSystem.integration.jde.dto.JdeTransporter
 import com.tms.transportationManagementSystem.integration.jde.dto.response.JdeVehicleResponseDTO;
 import com.tms.transportationManagementSystem.repository.TransporterRepository;
 import com.tms.transportationManagementSystem.repository.VehicleRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional
 public class JdeTransporterSyncService {
 
     private final JdeTransporterClient client;
     private final ObjectMapper objectMapper;
     private final TransporterRepository transporterRepository;
     private final VehicleRepository vehicleRepository;
+    private final TransactionTemplate transactionTemplate;
 
     private String clean(String value) {
         if (value == null || value.trim().isEmpty()) return null;
@@ -34,6 +36,7 @@ public class JdeTransporterSyncService {
 
     public void syncTransporters() {
         try {
+            // JDE call transaction ke bahar - slow API ke time DB connection hold nahi hota
             String response = client.getTransporters();
             JdeTransporterApiResponse apiResponse =
                     objectMapper.readValue(response, JdeTransporterApiResponse.class);
@@ -41,24 +44,51 @@ public class JdeTransporterSyncService {
             List<JdeTransporterResponseDTO> transporters = apiResponse.getTransporters();
 
             if (transporters == null || transporters.isEmpty()) {
-//                log.info("No transporters found in JDE response");
                 return;
             }
 
-            for (JdeTransporterResponseDTO dto : transporters) {
-//                log.info("Transporter: {}", dto.getCompanyName());
+            // Saara DB kaam pehle jaisa ek hi transaction mein
+            transactionTemplate.executeWithoutResult(status -> saveNewRecords(transporters));
 
-                if (dto.getVehicles() != null) {
-//                    log.info("Vehicle Count: {}", dto.getVehicles().size());
+        } catch (Exception ex) {
+            log.error("Error while syncing transporters and vehicles", ex);
+        }
+    }
 
-                    dto.getVehicles().forEach(v ->
-                            log.info("Vehicle Number: {}", v.getVehicleNumber()));
-                } else {
-//                    log.info("Vehicles list is NULL");
-                }
-                Transporter transporter = transporterRepository
-                        .findByAddressNumber(dto.getAddressNumber())
-                        .orElse(new Transporter());
+    private void saveNewRecords(List<JdeTransporterResponseDTO> transporters) {
+
+        // Existing transporters aur vehicle numbers ek saath (pehle har row ke liye findBy...)
+        Map<Long, Transporter> transportersByAddress =
+                transporterRepository.findByAddressNumberIn(
+                                transporters.stream()
+                                        .map(JdeTransporterResponseDTO::getAddressNumber)
+                                        .filter(Objects::nonNull)
+                                        .collect(Collectors.toSet()))
+                        .stream()
+                        .collect(Collectors.toMap(
+                                Transporter::getAddressNumber,
+                                Function.identity()));
+
+        Set<String> existingVehicleNumbers =
+                new HashSet<>(vehicleRepository.findAllVehicleNumbers());
+
+        List<Vehicle> newVehicles = new ArrayList<>();
+        int insertedTransporters = 0;
+
+        for (JdeTransporterResponseDTO dto : transporters) {
+
+            if (dto.getVehicles() != null) {
+                dto.getVehicles().forEach(v ->
+                        log.debug("Vehicle Number: {}", v.getVehicleNumber()));
+            }
+
+            // Transporter DB mein pehle se hai to usko touch nahi karna
+            // (TMS mein kiye gaye changes overwrite nahi honge), sirf naya insert hoga.
+            Transporter transporter = transportersByAddress.get(dto.getAddressNumber());
+
+            if (transporter == null) {
+
+                transporter = new Transporter();
 
                 transporter.setAddressNumber(dto.getAddressNumber());
                 transporter.setCompanyName(clean(dto.getCompanyName()));
@@ -80,35 +110,42 @@ public class JdeTransporterSyncService {
 
                 transporter = transporterRepository.save(transporter);
 
-
-                if (dto.getVehicles() != null && !dto.getVehicles().isEmpty()) {
-
-                    for (JdeVehicleResponseDTO vehicleDto : dto.getVehicles()) {
-
-                        Vehicle vehicle = vehicleRepository
-                                .findByVehicleNumber(clean(vehicleDto.getVehicleNumber()))
-                                .orElse(new Vehicle());
-
-                        vehicle.setVehicleNumber(clean(vehicleDto.getVehicleNumber()));
-                        vehicle.setVehicleType(clean(vehicleDto.getVehicleType()));
-                        vehicle.setMaxWeightCapacity(vehicleDto.getMaxWeightCapacity());
-                        vehicle.setMaxVolumeCapacity(vehicleDto.getMaxVolumeCapacity());
-                        vehicle.setWeightUnit(clean(vehicleDto.getTotalWeight()));
-                        vehicle.setVolumeUnit(clean(vehicleDto.getTotalVolume()));
-                        vehicle.setGpsDeviceId(clean(vehicleDto.getGpsDeviceId()));
-                        vehicle.setStatus(clean(vehicleDto.getStatus()));
-                        vehicle.setTransporter(transporter);
-
-                        vehicleRepository.save(vehicle);
-                    }
-                }
-
+                // Isi response mein same transporter dobara aaye to yahi reuse hoga
+                transportersByAddress.put(transporter.getAddressNumber(), transporter);
+                insertedTransporters++;
             }
 
-//            log.info("Transporter and Vehicle Sync Completed");
+            if (dto.getVehicles() != null && !dto.getVehicles().isEmpty()) {
 
-        } catch (Exception ex) {
-//            log.error("Error while syncing transporters and vehicles", ex);
+                for (JdeVehicleResponseDTO vehicleDto : dto.getVehicles()) {
+
+                    String vehicleNumber = clean(vehicleDto.getVehicleNumber());
+
+                    // Vehicle pehle se hai (DB ya isi response mein) to skip, sirf naya insert hoga
+                    if (!existingVehicleNumbers.add(vehicleNumber)) {
+                        continue;
+                    }
+
+                    Vehicle vehicle = new Vehicle();
+
+                    vehicle.setVehicleNumber(vehicleNumber);
+                    vehicle.setVehicleType(clean(vehicleDto.getVehicleType()));
+                    vehicle.setMaxWeightCapacity(vehicleDto.getMaxWeightCapacity());
+                    vehicle.setMaxVolumeCapacity(vehicleDto.getMaxVolumeCapacity());
+                    vehicle.setWeightUnit(clean(vehicleDto.getTotalWeight()));
+                    vehicle.setVolumeUnit(clean(vehicleDto.getTotalVolume()));
+                    vehicle.setGpsDeviceId(clean(vehicleDto.getGpsDeviceId()));
+                    vehicle.setStatus(clean(vehicleDto.getStatus()));
+                    vehicle.setTransporter(transporter);
+
+                    newVehicles.add(vehicle);
+                }
+            }
         }
+
+        vehicleRepository.saveAll(newVehicles);
+
+        log.info("Transporter Sync Completed. Total Records : {} | New Transporters : {} | New Vehicles : {}",
+                transporters.size(), insertedTransporters, newVehicles.size());
     }
 }

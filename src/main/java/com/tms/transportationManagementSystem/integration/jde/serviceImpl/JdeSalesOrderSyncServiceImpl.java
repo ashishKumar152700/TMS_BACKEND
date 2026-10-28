@@ -9,10 +9,10 @@ import com.tms.transportationManagementSystem.integration.jde.dto.response.JdeSa
 import com.tms.transportationManagementSystem.integration.jde.service.JdeSalesOrderSyncService;
 import com.tms.transportationManagementSystem.repository.JdeSalesOrderLineRepository;
 import com.tms.transportationManagementSystem.repository.JdeSalesOrderRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -28,11 +28,12 @@ public class JdeSalesOrderSyncServiceImpl implements JdeSalesOrderSyncService {
     private final JdeSalesOrderClient jdeSalesOrderClient;
     private final JdeSalesOrderRepository orderRepository;
     private final JdeSalesOrderLineRepository lineRepository;
+    private final TransactionTemplate transactionTemplate;
 
     @Override
-    @Transactional
     public void syncSalesOrders() {
 
+        // JDE call transaction ke bahar - slow API ke time DB connection hold nahi hota
         JdeSalesOrderApiResponse response =
                 jdeSalesOrderClient.getSalesOrders();
 
@@ -40,9 +41,20 @@ public class JdeSalesOrderSyncServiceImpl implements JdeSalesOrderSyncService {
             return;
         }
 
+        // Saara DB kaam pehle jaisa ek hi transaction mein
+        transactionTemplate.executeWithoutResult(status -> saveNewOrders(response));
+
+        log.info("Sales Orders Sync Completed");
+    }
+
+    private void saveNewOrders(JdeSalesOrderApiResponse response) {
+
         // Existing order numbers ek hi query mein (pehle har order ke liye findByOrderNumber)
         Set<String> existingOrderNumbers =
                 new HashSet<>(orderRepository.findAllOrderNumbers());
+
+        List<JdeSalesOrder> newOrders = new ArrayList<>();
+        List<JdeSalesOrderLine> newLines = new ArrayList<>();
 
         for (JdeSalesOrderResponseDTO dto : response.getOrders()) {
 
@@ -146,14 +158,12 @@ public class JdeSalesOrderSyncServiceImpl implements JdeSalesOrderSyncService {
                 );
             }
 
-            order = orderRepository.save(order);
+            newOrders.add(order);
 
             // Isi sync mein dobara aaye same order number ko bhi skip karna hai
             existingOrderNumbers.add(order.getOrderNumber());
 
             if (dto.getLines() != null) {
-
-                List<JdeSalesOrderLine> lines = new ArrayList<>();
 
                 for (JdeSalesOrderLineDTO lineDto : dto.getLines()) {
 
@@ -169,13 +179,13 @@ public class JdeSalesOrderSyncServiceImpl implements JdeSalesOrderSyncService {
                     line.setUnitPrice(lineDto.getUnitPrice());
                     line.setLineAmount(lineDto.getLineAmount());
 
-                    lines.add(line);
+                    newLines.add(line);
                 }
-
-                lineRepository.saveAll(lines);
             }
         }
 
-        log.info("Sales Orders Sync Completed");
+        // Orders pehle, phir lines (lines order ko reference karti hain)
+        orderRepository.saveAll(newOrders);
+        lineRepository.saveAll(newLines);
     }
 }
